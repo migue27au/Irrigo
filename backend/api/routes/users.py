@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from backend.models.user import User
 from backend.schemas.user import UserCreate, UserResponse, UserDetailedResponse
@@ -9,47 +8,40 @@ from backend.api.deps import get_db, get_current_admin, get_current_user
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
+
 # LIST ALL USERS
 @router.get("/", response_model=list[UserResponse])
-async def get_users(db: AsyncSession = Depends(get_db),
-        current_user: User = Depends(get_current_user)
+def get_users(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
-    result = await db.execute(select(User))
-    users = result.scalars().all()
-
+    users = db.query(User).all()
     return users
 
 
 # GET USER BY ID
 @router.get("/{user_id}", response_model=UserDetailedResponse)
-async def get_user(user_id: int, db: AsyncSession = Depends(get_db),
-        current_user: User = Depends(get_current_user)
+def get_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
-
-    result = await db.execute(
-        select(User).where(User.id == user_id)
-    )
-
-    user = result.scalar_one_or_none()
+    user = db.query(User).filter(User.id == user_id).first()
 
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
     return user
 
+
 # CREATE USER
 @router.post("/", response_model=UserDetailedResponse)
-async def create_user(
+def create_user(
     payload: UserCreate,
-    db: AsyncSession = Depends(get_db),
+    db: Session = Depends(get_db),
     current_admin: User = Depends(get_current_admin)
 ):
-
-    result = await db.execute(
-        select(User).where(User.email == payload.email)
-    )
-
-    existing = result.scalar_one_or_none()
+    existing = db.query(User).filter(User.email == payload.email).first()
 
     if existing:
         raise HTTPException(
@@ -64,25 +56,20 @@ async def create_user(
     )
 
     db.add(user)
-    await db.commit()
-    await db.refresh(user)
+    db.commit()
+    db.refresh(user)
 
     return user
 
 
 # DELETE USER
 @router.delete("/{user_id}", status_code=204)
-async def delete_user(
+def delete_user(
     user_id: int,
-    db: AsyncSession = Depends(get_db),
+    db: Session = Depends(get_db),
     current_admin: User = Depends(get_current_admin)
 ):
-
-    result = await db.execute(
-        select(User).where(User.id == user_id)
-    )
-
-    user = result.scalar_one_or_none()
+    user = db.query(User).filter(User.id == user_id).first()
 
     if not user:
         raise HTTPException(
@@ -90,5 +77,5 @@ async def delete_user(
             detail="User not found"
         )
 
-    await db.delete(user)
-    await db.commit()
+    db.delete(user)
+    db.commit()

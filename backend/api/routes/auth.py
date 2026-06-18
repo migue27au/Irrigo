@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from backend.models.user import User
 from backend.schemas.auth import LoginRequest, TokenResponse
@@ -12,10 +11,11 @@ router = APIRouter(prefix="/auth", tags=["Auth"])
 
 # LOGIN
 @router.post("/login", response_model=TokenResponse)
-async def login(payload: LoginRequest, db: AsyncSession = Depends(get_db)):
-
-    result = await db.execute(select(User).where(User.email == payload.email))
-    user = result.scalar_one_or_none()
+def login(
+    payload: LoginRequest,
+    db: Session = Depends(get_db)
+):
+    user = db.query(User).filter(User.email == payload.email).first()
 
     if not user:
         raise HTTPException(status_code=401, detail="Invalid credentials")
@@ -35,5 +35,5 @@ async def login(payload: LoginRequest, db: AsyncSession = Depends(get_db)):
 
 # LOGOUT (stateless JWT)
 @router.post("/logout")
-async def logout():
+def logout():
     return {"message": "Logged out (client should delete token)"}

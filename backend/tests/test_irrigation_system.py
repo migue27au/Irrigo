@@ -3,7 +3,6 @@ import json
 import traceback
 import time
 
-
 BASE_URL = "http://localhost:8000"
 
 # =========================================================
@@ -47,14 +46,10 @@ def print_response(resp):
     print(f"{CYAN}{BOLD}\n--- RESPONSE ---{RESET}")
     print(f"{BLUE}STATUS: {resp.status_code}{RESET}")
 
-    print(f"{YELLOW}\nHEADERS:{RESET}")
-    print(pretty(dict(resp.headers)))
-
     try:
-        print(f"{YELLOW}\nBODY (JSON):{RESET}")
+        print(f"{YELLOW}\nBODY:{RESET}")
         print(pretty(resp.json()))
     except Exception:
-        print(f"{YELLOW}\nBODY (TEXT):{RESET}")
         print(resp.text)
 
 
@@ -83,7 +78,6 @@ def request(method, path, headers=None, json_body=None):
     )
 
     print_response(resp)
-
     return resp
 
 
@@ -116,7 +110,7 @@ def auth_headers(token):
 
 
 # =========================================================
-# RUNNER CORE
+# RUNNER
 # =========================================================
 
 def run_test(name, fn):
@@ -138,140 +132,171 @@ def run_test(name, fn):
 # TESTS
 # =========================================================
 
-def test_list_users_no_auth():
-    r = request("GET", "/users/")
-    assert r.status_code == 401
+SYSTEM_CACHE = {}
 
 
-def test_get_user_no_auth():
-    r = request("GET", "/users/1")
-    assert r.status_code == 401
+# ---------------------------------------------------------
+# CREATE
+# ---------------------------------------------------------
 
-
-def test_create_user_no_auth():
+def test_create_system_no_auth():
     r = request(
         "POST",
-        "/users/",
+        "/irrigation-systems/",
         json_body={
-            "email": "x@test.com",
-            "password": "secret123",
-            "name": "X"
+            "alias": "My Farm",
+            "description": "Test system"
         }
     )
     assert r.status_code == 401
 
 
-def test_delete_user_no_auth():
-    r = request("DELETE", "/users/1")
-    assert r.status_code == 401
-
-
-def test_login_admin():
-    token = login_admin()
-    assert token
-
-
-def test_login_user():
-    token = login_user()
-    assert token
-
-
-def test_user_can_list_users():
-    token = login_user()
-
-    r = request(
-        "GET",
-        "/users/",
-        headers=auth_headers(token)
-    )
-
-    assert r.status_code == 200
-
-def test_user_can_list_user():
-    token = login_user()
-
-    r = request(
-        "GET",
-        "/users/1",
-        headers=auth_headers(token)
-    )
-
-    assert r.status_code == 200
-
-def test_user_cannot_create_user():
+def test_user_create_system():
     token = login_user()
 
     r = request(
         "POST",
-        "/users/",
+        "/irrigation-systems/",
         headers=auth_headers(token),
         json_body={
-            "email": "hack@test.com",
-            "password": "secret123",
-            "name": "Hack"
+            "alias": "Farm 1",
+            "description": "Main irrigation system"
         }
     )
 
-    assert r.status_code == 403
+    assert r.status_code in (200, 201)
+
+    data = r.json()
+    SYSTEM_CACHE["system_id"] = data["id"]
+
+    return data["id"]
 
 
-def test_user_cannot_delete_user():
+# ---------------------------------------------------------
+# LIST
+# ---------------------------------------------------------
+
+def test_user_list_systems():
     token = login_user()
 
     r = request(
-        "DELETE",
-        "/users/2",
-        headers=auth_headers(token)
-    )
-
-    assert r.status_code == 403
-
-
-def test_admin_can_list_users():
-    token = login_admin()
-
-    r = request(
         "GET",
-        "/users/",
+        "/irrigation-systems/",
         headers=auth_headers(token)
     )
 
     assert r.status_code == 200
 
-def test_admin_can_list_user():
-    token = login_admin()
+
+# ---------------------------------------------------------
+# GET
+# ---------------------------------------------------------
+
+def test_user_get_system():
+    token = login_user()
+    system_id = SYSTEM_CACHE.get("system_id") or test_user_create_system()
 
     r = request(
         "GET",
-        "/users/1",
+        f"/irrigation-systems/{system_id}",
         headers=auth_headers(token)
     )
 
     assert r.status_code == 200
 
-def test_admin_can_create_user():
-    token = login_admin()
+
+# ---------------------------------------------------------
+# UPDATE
+# ---------------------------------------------------------
+
+def test_owner_update_system():
+    token = login_user()
+    system_id = SYSTEM_CACHE.get("system_id") or test_user_create_system()
+
+    r = request(
+        "PUT",
+        f"/irrigation-systems/{system_id}",
+        headers=auth_headers(token),
+        json_body={
+            "alias": "Updated Farm"
+        }
+    )
+
+    assert r.status_code == 200
+
+
+def test_update_no_auth():
+    system_id = SYSTEM_CACHE.get("system_id", 1)
+
+    r = request(
+        "PUT",
+        f"/irrigation-systems/{system_id}",
+        json_body={"alias": "Hack"}
+    )
+
+    assert r.status_code == 401
+
+
+# ---------------------------------------------------------
+# SHARE
+# ---------------------------------------------------------
+
+def test_owner_share_system():
+    token = login_user()
+    system_id = SYSTEM_CACHE.get("system_id") or test_user_create_system()
 
     r = request(
         "POST",
-        "/users/",
+        f"/irrigation-systems/{system_id}/share",
         headers=auth_headers(token),
         json_body={
-            "email": "dummy@test.com",
-            "password": "secret123",
-            "name": "Dummy"
+            "user_id": 1,
+            "role": "viewer"
         }
     )
 
     assert r.status_code in (200, 201)
 
 
-def test_admin_can_delete_user():
-    token = login_admin()
+def test_non_owner_cannot_share():
+    token = login_user()
+    system_id = SYSTEM_CACHE.get("system_id") or test_user_create_system()
+
+    token2 = login_admin()
+
+    r = request(
+        "POST",
+        f"/irrigation-systems/{system_id}/share",
+        headers=auth_headers(token2),
+        json_body={
+            "user_id": 3,
+            "role": "viewer"
+        }
+    )
+
+    assert r.status_code == 403
+
+
+# ---------------------------------------------------------
+# DELETE
+# ---------------------------------------------------------
+
+def test_delete_no_auth():
+    r = request(
+        "DELETE",
+        "/irrigation-systems/1"
+    )
+
+    assert r.status_code == 401
+
+
+def test_owner_delete_system():
+    token = login_user()
+    system_id = SYSTEM_CACHE.get("system_id") or test_user_create_system()
 
     r = request(
         "DELETE",
-        "/users/2",
+        f"/irrigation-systems/{system_id}",
         headers=auth_headers(token)
     )
 
@@ -283,35 +308,27 @@ def test_admin_can_delete_user():
 # =========================================================
 
 if __name__ == "__main__":
+
     tests = [
-        ("list_users_no_auth", test_list_users_no_auth),
-        ("get_user_no_auth", test_get_user_no_auth),
-        ("create_user_no_auth", test_create_user_no_auth),
-        ("delete_user_no_auth", test_delete_user_no_auth),
-
-        ("login_admin", test_login_admin),
-        ("login_user", test_login_user),
-
-        ("user_can_list_users", test_user_can_list_users),
-        ("user_can_list_user", test_user_can_list_user),
-        ("user_cannot_create_user", test_user_cannot_create_user),
-        ("user_cannot_delete_user", test_user_cannot_delete_user),
-
-        ("admin_can_list_users", test_admin_can_list_users),
-        ("admin_can_list_user", test_admin_can_list_user),
-        ("admin_can_create_user", test_admin_can_create_user),
-        ("admin_can_delete_user", test_admin_can_delete_user),
+        ("create_system_no_auth", test_create_system_no_auth),
+        ("user_create_system", test_user_create_system),
+        ("user_list_systems", test_user_list_systems),
+        ("user_get_system", test_user_get_system),
+        ("owner_update_system", test_owner_update_system),
+        ("update_no_auth", test_update_no_auth),
+        ("owner_share_system", test_owner_share_system),
+        ("non_owner_cannot_share", test_non_owner_cannot_share),
+        ("delete_no_auth", test_delete_no_auth),
+        ("owner_delete_system", test_owner_delete_system),
     ]
 
-    print("\nSTARTING E2E TEST RUN\n")
+    print("\nSTARTING IRRIGATION SYSTEMS TEST SUITE\n")
 
     passed = 0
     failed = 0
 
     for name, fn in tests:
         run_test(name, fn)
-
-        # intervalo entre tests
         time.sleep(1)
 
         try:

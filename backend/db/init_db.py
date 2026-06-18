@@ -9,11 +9,5 @@ from backend.models.user import User
 # etc.
 
 
-async def init_db():
-    """
-    Creates all database tables based on SQLAlchemy models.
-    Only use in development or initial setup (NOT production).
-    """
-
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+def init_db():
+    Base.metadata.create_all(bind=engine)

@@ -1,70 +1,38 @@
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-
+from backend.db.db import SessionLocal
 from backend.models.user import User
-from backend.core.security import hash_password
+from backend.core.security import get_password_hash
 
 
-async def create_admin_user(db: AsyncSession):
-    """
-    Creates a default admin user if it does not exist.
-    Used for initial development setup.
-    """
+def run():
+    db = SessionLocal()
+    try:
+        admin = db.query(User).filter_by(email="admin@admin.com").first()
+        if not admin:
+            admin = User(
+                email="admin@admin.com",
+                password_hash=get_password_hash("admin"),
+                name="Admin",
+                role="admin"
+            )
+            db.add(admin)
 
-    admin_email = "admin@admin.com"
-    admin_password = "admin"
+        test = db.query(User).filter_by(email="test@test.com").first()
+        if not test:
+            test = User(
+                email="test@test.com",
+                password_hash=get_password_hash("secret123"),
+                name="Test",
+                role="user"
+            )
+            db.add(test)
 
-    result = await db.execute(
-        select(User).where(User.email == admin_email)
-    )
+        db.commit()
 
-    admin = result.scalar_one_or_none()
+        print("Seed completed")
 
-    if admin:
-        print("Admin already exists")
-        return
-
-    new_admin = User(
-        email=admin_email,
-        password_hash=hash_password(admin_password),
-        name="System Admin",
-        role="admin"
-    )
-
-    db.add(new_admin)
-    await db.commit()
-
-    print("Admin user created successfully")
-
+    finally:
+        db.close()
 
 
-async def create_test_user(db: AsyncSession):
-    """
-    Creates a default test user if it does not exist.
-    Used for testing and development.
-    """
-
-    test_email = "test@test.com"
-    test_password = "secret123"
-
-    result = await db.execute(
-        select(User).where(User.email == test_email)
-    )
-
-    user = result.scalar_one_or_none()
-
-    if user:
-        print("Test user already exists")
-        return
-
-    new_user = User(
-        email=test_email,
-        password_hash=hash_password(test_password),
-        name="Test User",
-        role="user"
-    )
-
-    db.add(new_user)
-    await db.commit()
-
-    print("Test user created successfully")
+if __name__ == "__main__":
+    run()

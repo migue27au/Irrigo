@@ -27,14 +27,14 @@ services:
   backend:
     build: .
     container_name: irrigo_backend
-    restart: always
+    #restart: always
 
     depends_on:
       - db
 
     environment:
       PYTHONDONTWRITEBYTECODE: 1
-      DATABASE_URL: postgresql+asyncpg://iot_user:iot_password@db:5432/irrigo_db
+      DATABASE_URL: postgresql+psycopg2://iot_user:iot_password@db:5432/irrigo_db
       SECRET_KEY: super-secret-key
       DEVICE_API_KEY_SECRET: esp32-secret
 
