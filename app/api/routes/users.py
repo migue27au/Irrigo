@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.models.user import User
-from app.schemas.user import UserCreate, UserResponse
+from app.schemas.user import UserCreate, UserResponse, UserDetailedResponse
 from app.core.security import hash_password
 from app.api.deps import get_db
 
@@ -20,7 +20,7 @@ async def get_users(db: AsyncSession = Depends(get_db)):
 
 
 # GET USER BY ID
-@router.get("/{user_id}", response_model=UserResponse)
+@router.get("/{user_id}", response_model=UserDetailedResponse)
 async def get_user(user_id: int, db: AsyncSession = Depends(get_db)):
 
     result = await db.execute(
