@@ -5,14 +5,15 @@ from sqlalchemy import select
 from backend.models.user import User
 from backend.schemas.user import UserCreate, UserResponse, UserDetailedResponse
 from backend.core.security import hash_password
-from backend.api.deps import get_db
+from backend.api.deps import get_db, get_current_admin, get_current_user
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
 # LIST ALL USERS
 @router.get("/", response_model=list[UserResponse])
-async def get_users(db: AsyncSession = Depends(get_db)):
-
+async def get_users(db: AsyncSession = Depends(get_db),
+        current_user: User = Depends(get_current_user)
+):
     result = await db.execute(select(User))
     users = result.scalars().all()
 
@@ -21,7 +22,9 @@ async def get_users(db: AsyncSession = Depends(get_db)):
 
 # GET USER BY ID
 @router.get("/{user_id}", response_model=UserDetailedResponse)
-async def get_user(user_id: int, db: AsyncSession = Depends(get_db)):
+async def get_user(user_id: int, db: AsyncSession = Depends(get_db),
+        current_user: User = Depends(get_current_user)
+):
 
     result = await db.execute(
         select(User).where(User.id == user_id)
@@ -35,14 +38,24 @@ async def get_user(user_id: int, db: AsyncSession = Depends(get_db)):
     return user
 
 # CREATE USER
-@router.post("/", response_model=UserResponse)
-async def create_user(payload: UserCreate, db: AsyncSession = Depends(get_db)):
+@router.post("/", response_model=UserDetailedResponse)
+async def create_user(
+    payload: UserCreate,
+    db: AsyncSession = Depends(get_db),
+    current_admin: User = Depends(get_current_admin)
+):
 
-    result = await db.execute(select(User).where(User.email == payload.email))
+    result = await db.execute(
+        select(User).where(User.email == payload.email)
+    )
+
     existing = result.scalar_one_or_none()
 
     if existing:
-        raise HTTPException(status_code=400, detail="Email already exists")
+        raise HTTPException(
+            status_code=400,
+            detail="Email already exists"
+        )
 
     user = User(
         email=payload.email,
@@ -58,16 +71,24 @@ async def create_user(payload: UserCreate, db: AsyncSession = Depends(get_db)):
 
 
 # DELETE USER
-@router.delete("/{user_id}")
-async def delete_user(user_id: int, db: AsyncSession = Depends(get_db)):
+@router.delete("/{user_id}", status_code=204)
+async def delete_user(
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_admin: User = Depends(get_current_admin)
+):
 
-    result = await db.execute(select(User).where(User.id == user_id))
+    result = await db.execute(
+        select(User).where(User.id == user_id)
+    )
+
     user = result.scalar_one_or_none()
 
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(
+            status_code=404,
+            detail="User not found"
+        )
 
     await db.delete(user)
     await db.commit()
-
-    return {"message": "User deleted"}

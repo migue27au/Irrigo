@@ -35,3 +35,36 @@ async def create_admin_user(db: AsyncSession):
     await db.commit()
 
     print("Admin user created successfully")
+
+
+
+async def create_test_user(db: AsyncSession):
+    """
+    Creates a default test user if it does not exist.
+    Used for testing and development.
+    """
+
+    test_email = "test@test.com"
+    test_password = "secret123"
+
+    result = await db.execute(
+        select(User).where(User.email == test_email)
+    )
+
+    user = result.scalar_one_or_none()
+
+    if user:
+        print("Test user already exists")
+        return
+
+    new_user = User(
+        email=test_email,
+        password_hash=hash_password(test_password),
+        name="Test User",
+        role="user"
+    )
+
+    db.add(new_user)
+    await db.commit()
+
+    print("Test user created successfully")
