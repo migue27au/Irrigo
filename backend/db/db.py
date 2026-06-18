@@ -1,9 +1,8 @@
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 
-from app.core.config import settings
+from backend.core.config import settings
 
-# DATABASE URL (ej: postgresql+asyncpg://user:pass@host/db)
 DATABASE_URL = settings.DATABASE_URL
 
 

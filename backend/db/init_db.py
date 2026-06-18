@@ -1,11 +1,11 @@
-from app.db.base import Base
-from app.db.db import engine
+from backend.db.base import Base
+from backend.db.db import engine
 
 #  TODO: importar todos los modelos para que SQLAlchemy los registre
-from app.models.user import User
+from backend.models.user import User
 # luego añadirás:
-# from app.models.system import IrrigationSystem
-# from app.models.sensor import Sensor
+# from backend.models.system import IrrigationSystem
+# from backend.models.sensor import Sensor
 # etc.
 
 

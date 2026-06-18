@@ -1,11 +1,11 @@
 from fastapi import FastAPI
 
-from app.api.routes.users import router as users_router
-from app.api.routes.auth import router as auth_router
+from backend.api.routes.users import router as users_router
+from backend.api.routes.auth import router as auth_router
 
-from app.db.init_db import init_db
-from app.db.seed import create_admin_user
-from app.db.db import SessionLocal
+from backend.db.init_db import init_db
+from backend.db.seed import create_admin_user
+from backend.db.db import SessionLocal
 
 app = FastAPI(title="IoT Irrigation System")
 
