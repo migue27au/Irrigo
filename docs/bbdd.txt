@@ -1,0 +1,485 @@
+-- =====================================================
+-- EXTENSIONS
+-- =====================================================
+
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- =====================================================
+-- TABLE: users
+-- =====================================================
+
+CREATE TABLE users (
+    id BIGSERIAL PRIMARY KEY,
+
+    email VARCHAR(255) NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
+
+    name VARCHAR(255),
+    role VARCHAR(30) NOT NULL DEFAULT 'user',
+
+
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+COMMENT ON TABLE users IS 'Platform users. A user can own and manage one or more irrigation systems.';
+
+COMMENT ON COLUMN users.id IS 'Internal primary key of the user.';
+
+COMMENT ON COLUMN users.email IS 'Unique email address used for authentication.';
+
+COMMENT ON COLUMN users.password_hash IS 'Password hash. Plain text passwords must never be stored.';
+
+COMMENT ON COLUMN users.name IS 'Display name of the user.';
+
+COMMENT ON COLUMN system_users.role IS 'Permission level. Suggested values: guest, user, admin';
+
+COMMENT ON COLUMN users.created_at IS 'Timestamp when the user account was created.';
+
+COMMENT ON COLUMN users.updated_at IS 'Timestamp of the latest modification.';
+
+-- =====================================================
+-- TABLE: irrigation_systems
+-- =====================================================
+
+CREATE TABLE irrigation_systems (
+    id BIGSERIAL PRIMARY KEY,
+
+    uuid UUID NOT NULL UNIQUE DEFAULT uuid_generate_v4(),
+
+    owner_user_id BIGINT NOT NULL
+        REFERENCES users(id)
+        ON DELETE CASCADE,
+
+    api_key_hash TEXT NOT NULL,
+
+    alias VARCHAR(255) NOT NULL,
+    description TEXT,
+
+    firmware_version VARCHAR(50),
+
+    last_seen_at TIMESTAMPTZ,
+
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+COMMENT ON TABLE irrigation_systems IS 'Represents a physical ESP32-based irrigation station. Each system owns sensors, outputs, automation rules and schedules.';
+
+COMMENT ON COLUMN irrigation_systems.id IS 'Internal primary key of the irrigation system.';
+
+COMMENT ON COLUMN irrigation_systems.uuid IS 'Public unique identifier used by APIs and device communications.';
+
+COMMENT ON COLUMN irrigation_systems.owner_user_id IS 'Owner of the irrigation system.';
+
+COMMENT ON COLUMN irrigation_systems.api_key_hash IS 'Hashed API key used by the device for authentication.';
+
+COMMENT ON COLUMN irrigation_systems.alias IS 'Human-readable name assigned by the user.';
+
+COMMENT ON COLUMN irrigation_systems.description IS 'Optional user-defined description.';
+
+COMMENT ON COLUMN irrigation_systems.firmware_version IS 'Firmware version reported by the ESP32.';
+
+COMMENT ON COLUMN irrigation_systems.last_seen_at IS 'Timestamp of the latest successful communication received from the device.';
+
+COMMENT ON COLUMN irrigation_systems.created_at IS 'Timestamp when the irrigation system was registered.';
+
+COMMENT ON COLUMN irrigation_systems.updated_at IS 'Timestamp of the latest modification.';
+
+-- =====================================================
+-- TABLE: system_users
+-- =====================================================
+
+CREATE TABLE system_users (
+    id BIGSERIAL PRIMARY KEY,
+
+    system_id BIGINT NOT NULL
+        REFERENCES irrigation_systems(id)
+        ON DELETE CASCADE,
+
+    user_id BIGINT NOT NULL
+        REFERENCES users(id)
+        ON DELETE CASCADE,
+
+    role VARCHAR(30) NOT NULL DEFAULT 'viewer',
+
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    UNIQUE(system_id, user_id)
+);
+
+COMMENT ON TABLE system_users IS 'Associates users with irrigation systems, allowing system sharing and role-based access control.';
+
+COMMENT ON COLUMN system_users.system_id IS 'Referenced irrigation system.';
+
+COMMENT ON COLUMN system_users.user_id IS 'Referenced user.';
+
+COMMENT ON COLUMN system_users.role IS 'Permission level. Suggested values: viewer,  maintainer.';
+
+COMMENT ON COLUMN system_users.created_at IS 'Timestamp when access was granted.';
+
+-- =====================================================
+-- TABLE: sensors
+-- =====================================================
+
+CREATE TABLE sensors (
+    id BIGSERIAL PRIMARY KEY,
+
+    system_id BIGINT NOT NULL
+        REFERENCES irrigation_systems(id)
+        ON DELETE CASCADE,
+
+    sensor_key VARCHAR(100) NOT NULL,
+
+    name VARCHAR(255),
+
+    unit VARCHAR(20),
+
+    sensor_type VARCHAR(50),
+
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,
+
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    UNIQUE(system_id, sensor_key)
+);
+
+COMMENT ON TABLE sensors IS 'Catalog of sensors discovered for an irrigation system. Sensors are automatically created when new telemetry keys are received.';
+
+COMMENT ON COLUMN sensors.id IS 'Internal primary key of the sensor.';
+
+COMMENT ON COLUMN sensors.system_id IS 'Irrigation system that owns the sensor.';
+
+COMMENT ON COLUMN sensors.sensor_key IS 'Technical identifier received from device telemetry. Example: soil_moisture_1, ambient_temperature.';
+
+COMMENT ON COLUMN sensors.name IS 'User-friendly display name.';
+
+COMMENT ON COLUMN sensors.unit IS 'Measurement unit such as %, °C, hPa or mm.';
+
+COMMENT ON COLUMN sensors.sensor_type IS 'Logical category of the sensor such as temperature, humidity, pressure or rainfall.';
+
+COMMENT ON COLUMN sensors.enabled IS 'Indicates whether the sensor is active for dashboards and automation.';
+
+COMMENT ON COLUMN sensors.created_at IS 'Timestamp when the sensor was first detected.';
+
+-- =====================================================
+-- TABLE: sensor_readings
+-- =====================================================
+
+CREATE TABLE sensor_readings (
+    id BIGSERIAL PRIMARY KEY,
+
+    sensor_id BIGINT NOT NULL
+        REFERENCES sensors(id)
+        ON DELETE CASCADE,
+
+    value NUMERIC(12,4) NOT NULL,
+
+    recorded_at TIMESTAMPTZ NOT NULL
+);
+
+CREATE INDEX idx_sensor_readings_sensor_time
+ON sensor_readings(sensor_id, recorded_at DESC);
+
+CREATE INDEX idx_sensor_readings_time
+ON sensor_readings(recorded_at DESC);
+
+COMMENT ON TABLE sensor_readings IS 'Historical time-series measurements collected from sensors. This table may contain millions of records.';
+
+COMMENT ON COLUMN sensor_readings.id IS 'Internal primary key of the measurement.';
+
+COMMENT ON COLUMN sensor_readings.sensor_id IS 'Sensor that generated the measurement.';
+
+COMMENT ON COLUMN sensor_readings.value IS 'Numeric value reported by the sensor.';
+
+COMMENT ON COLUMN sensor_readings.recorded_at IS 'Timestamp when the measurement was recorded.';
+
+-- =====================================================
+-- TABLE: outputs
+-- =====================================================
+
+CREATE TABLE outputs (
+    id BIGSERIAL PRIMARY KEY,
+
+    system_id BIGINT NOT NULL
+        REFERENCES irrigation_systems(id)
+        ON DELETE CASCADE,
+
+    output_key VARCHAR(50) NOT NULL,
+
+    name VARCHAR(255),
+
+    min_value INTEGER NOT NULL DEFAULT 0,
+    max_value INTEGER NOT NULL DEFAULT 255,
+
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,
+
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    UNIQUE(system_id, output_key)
+);
+
+COMMENT ON TABLE outputs IS 'Controllable outputs exposed by the device. Outputs may represent pumps, valves, lights, fans or other actuators.';
+
+COMMENT ON COLUMN outputs.system_id IS 'Irrigation system that owns the output.';
+
+COMMENT ON COLUMN outputs.output_key IS 'Technical identifier. Example: OUTPUT1, OUTPUT2.';
+
+COMMENT ON COLUMN outputs.name IS 'User-friendly display name.';
+
+COMMENT ON COLUMN outputs.min_value IS 'Minimum accepted value.';
+
+COMMENT ON COLUMN outputs.max_value IS 'Maximum accepted value. Typically 255 for PWM outputs.';
+
+COMMENT ON COLUMN outputs.enabled IS 'Indicates whether the output is available for use.';
+
+COMMENT ON COLUMN outputs.created_at IS 'Timestamp when the output was created.';
+
+-- =====================================================
+-- TABLE: commands
+-- =====================================================
+
+CREATE TABLE commands (
+    id BIGSERIAL PRIMARY KEY,
+
+    system_id BIGINT NOT NULL
+        REFERENCES irrigation_systems(id)
+        ON DELETE CASCADE,
+
+    output_id BIGINT NOT NULL
+        REFERENCES outputs(id)
+        ON DELETE CASCADE,
+
+    value INTEGER NOT NULL,
+
+    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    sent_at TIMESTAMPTZ,
+    executed_at TIMESTAMPTZ,
+
+    response_message TEXT
+);
+
+CREATE INDEX idx_commands_pending
+ON commands(system_id, status);
+
+COMMENT ON TABLE commands IS 'Command queue used to send actions to irrigation devices.';
+
+COMMENT ON COLUMN commands.system_id IS 'Target irrigation system.';
+
+COMMENT ON COLUMN commands.output_id IS 'Target output that will receive the command.';
+
+COMMENT ON COLUMN commands.value IS 'Output value to apply. Typically between 0 and 255.';
+
+COMMENT ON COLUMN commands.status IS 'Command status. Suggested values: pending, sent, executed, failed.';
+
+COMMENT ON COLUMN commands.created_at IS 'Timestamp when the command was created.';
+
+COMMENT ON COLUMN commands.sent_at IS 'Timestamp when the command was delivered to the device.';
+
+COMMENT ON COLUMN commands.executed_at IS 'Timestamp when the device confirmed execution.';
+
+COMMENT ON COLUMN commands.response_message IS 'Optional message returned by the device.';
+
+-- =====================================================
+-- TABLE: rules
+-- =====================================================
+
+CREATE TABLE rules (
+    id BIGSERIAL PRIMARY KEY,
+
+    system_id BIGINT NOT NULL
+        REFERENCES irrigation_systems(id)
+        ON DELETE CASCADE,
+
+    name VARCHAR(255) NOT NULL,
+
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,
+
+    action_output_id BIGINT NOT NULL
+        REFERENCES outputs(id)
+        ON DELETE CASCADE,
+
+    action_value INTEGER NOT NULL,
+
+    cooldown_seconds INTEGER NOT NULL DEFAULT 0,
+
+    last_executed_at TIMESTAMPTZ,
+
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+COMMENT ON TABLE rules IS 'Automation rules configured by users. When conditions are satisfied, an action is executed on an output.';
+
+COMMENT ON COLUMN rules.system_id IS 'Irrigation system that owns the rule.';
+
+COMMENT ON COLUMN rules.name IS 'Human-readable rule name.';
+
+COMMENT ON COLUMN rules.enabled IS 'Determines whether the rule is active.';
+
+COMMENT ON COLUMN rules.action_output_id IS 'Output affected when the rule is triggered.';
+
+COMMENT ON COLUMN rules.action_value IS 'Value sent to the output when the rule executes.';
+
+COMMENT ON COLUMN rules.cooldown_seconds IS 'Minimum time between consecutive executions.';
+
+COMMENT ON COLUMN rules.last_executed_at IS 'Timestamp of the most recent execution.';
+
+COMMENT ON COLUMN rules.created_at IS 'Timestamp when the rule was created.';
+
+-- =====================================================
+-- TABLE: rule_condition_groups
+-- =====================================================
+
+CREATE TABLE rule_condition_groups (
+    id BIGSERIAL PRIMARY KEY,
+
+    rule_id BIGINT NOT NULL
+        REFERENCES rules(id)
+        ON DELETE CASCADE,
+
+    group_order INTEGER NOT NULL DEFAULT 1
+);
+
+COMMENT ON TABLE rule_condition_groups IS 'Logical condition groups. Conditions within the same group are evaluated using AND. Different groups are evaluated using OR.';
+
+COMMENT ON COLUMN rule_condition_groups.rule_id IS 'Rule that owns the condition group.';
+
+COMMENT ON COLUMN rule_condition_groups.group_order IS 'Display and evaluation order of the group.';
+
+-- =====================================================
+-- TABLE: rule_conditions
+-- =====================================================
+
+CREATE TABLE rule_conditions (
+    id BIGSERIAL PRIMARY KEY,
+
+    group_id BIGINT NOT NULL
+        REFERENCES rule_condition_groups(id)
+        ON DELETE CASCADE,
+
+    sensor_id BIGINT NOT NULL
+        REFERENCES sensors(id)
+        ON DELETE CASCADE,
+
+    operator VARCHAR(10) NOT NULL,
+
+    compare_value NUMERIC(12,4) NOT NULL
+);
+
+COMMENT ON TABLE rule_conditions IS 'Individual conditions used to build automation rules.';
+
+COMMENT ON COLUMN rule_conditions.group_id IS 'Condition group that owns the condition.';
+
+COMMENT ON COLUMN rule_conditions.sensor_id IS 'Sensor used in the comparison.';
+
+COMMENT ON COLUMN rule_conditions.operator IS 'Comparison operator. Suggested values: >, >=, <, <=, =, !=.';
+
+COMMENT ON COLUMN rule_conditions.compare_value IS 'Reference value used in the comparison.';
+
+-- =====================================================
+-- TABLE: irrigation_schedules
+-- =====================================================
+
+CREATE TABLE irrigation_schedules (
+    id BIGSERIAL PRIMARY KEY,
+
+    system_id BIGINT NOT NULL
+        REFERENCES irrigation_systems(id)
+        ON DELETE CASCADE,
+
+    output_id BIGINT NOT NULL
+        REFERENCES outputs(id)
+        ON DELETE CASCADE,
+
+    name VARCHAR(255) NOT NULL,
+
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,
+
+    cron_expression VARCHAR(100) NOT NULL,
+
+    value INTEGER NOT NULL,
+
+    duration_seconds INTEGER NOT NULL,
+
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+COMMENT ON TABLE irrigation_schedules IS 'Scheduled actions based on CRON expressions. Used for time-based irrigation and automation.';
+
+COMMENT ON COLUMN irrigation_schedules.system_id IS 'Irrigation system that owns the schedule.';
+
+COMMENT ON COLUMN irrigation_schedules.output_id IS 'Output controlled by the schedule.';
+
+COMMENT ON COLUMN irrigation_schedules.name IS 'Human-readable schedule name.';
+
+COMMENT ON COLUMN irrigation_schedules.enabled IS 'Indicates whether the schedule is active.';
+
+COMMENT ON COLUMN irrigation_schedules.cron_expression IS 'CRON expression defining when the action should run.';
+
+COMMENT ON COLUMN irrigation_schedules.value IS 'Output value to apply.';
+
+COMMENT ON COLUMN irrigation_schedules.duration_seconds IS 'Duration in seconds that the output remains active.';
+
+COMMENT ON COLUMN irrigation_schedules.created_at IS 'Timestamp when the schedule was created.';
+
+-- =====================================================
+-- TABLE: events
+-- =====================================================
+
+CREATE TABLE events (
+    id BIGSERIAL PRIMARY KEY,
+
+    system_id BIGINT NOT NULL
+        REFERENCES irrigation_systems(id)
+        ON DELETE CASCADE,
+
+    event_type VARCHAR(100) NOT NULL,
+
+    message TEXT,
+
+    metadata JSONB,
+
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+COMMENT ON TABLE events IS 'Audit log containing relevant events generated by the platform or devices.';
+
+COMMENT ON COLUMN events.system_id IS 'Related irrigation system.';
+
+COMMENT ON COLUMN events.event_type IS 'Event category such as device_online, device_offline, command_executed or rule_triggered.';
+
+COMMENT ON COLUMN events.message IS 'Human-readable event description.';
+
+COMMENT ON COLUMN events.metadata IS 'Additional event information stored as JSON.';
+
+COMMENT ON COLUMN events.created_at IS 'Timestamp when the event occurred.';
+
+-- =====================================================
+-- TABLE: telemetry_raw
+-- =====================================================
+
+CREATE TABLE telemetry_raw (
+    id BIGSERIAL PRIMARY KEY,
+
+    system_id BIGINT NOT NULL
+        REFERENCES irrigation_systems(id)
+        ON DELETE CASCADE,
+
+    payload JSONB NOT NULL,
+
+    received_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_telemetry_raw_system_time
+ON telemetry_raw(system_id, received_at DESC);
+
+COMMENT ON TABLE telemetry_raw IS 'Raw telemetry messages received from devices before processing and normalization.';
+
+COMMENT ON COLUMN telemetry_raw.system_id IS 'Source irrigation system.';
+
+COMMENT ON COLUMN telemetry_raw.payload IS 'Original JSON payload sent by the device.';
+
+COMMENT ON COLUMN telemetry_raw.received_at IS 'Timestamp when the payload was received by the server.';

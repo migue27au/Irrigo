@@ -1,0 +1,61 @@
+version: "3.9"
+
+services:
+
+  # 🐘 POSTGRES DATABASE
+  db:
+    image: postgres:16
+    container_name: irrigation_postgres
+    restart: always
+
+    environment:
+      POSTGRES_USER: iot_user
+      POSTGRES_PASSWORD: iot_password
+      POSTGRES_DB: irrigation_db
+
+    ports:
+      - "5432:5432"
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+    networks:
+      - irrigation_net
+
+
+  # 🚀 FASTAPI BACKEND
+  api:
+    build: .
+    container_name: irrigation_api
+    restart: always
+
+    depends_on:
+      - db
+
+    environment:
+      DATABASE_URL: postgresql+asyncpg://iot_user:iot_password@db:5432/irrigation_db
+      SECRET_KEY: super-secret-key
+      DEVICE_API_KEY_SECRET: esp32-secret
+
+    ports:
+      - "8000:8000"
+
+    volumes:
+      - .:/app
+
+    command: >
+      uvicorn app.main:app
+      --host 0.0.0.0
+      --port 8000
+      --reload
+
+    networks:
+      - irrigation_net
+
+
+volumes:
+  postgres_data:
+
+
+networks:
+  irrigation_net:
