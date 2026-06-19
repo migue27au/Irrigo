@@ -1,26 +1,27 @@
-from backend.db.db import SessionLocal
-from backend.models.user import User
-from backend.core.security import get_password_hash
+from db.db import SessionLocal
+from models.user import User
+from core.security import hash_password
 
+# docker compose exec backend python -m db.seed
 
 def run():
     db = SessionLocal()
     try:
-        admin = db.query(User).filter_by(email="admin@admin.com").first()
+        admin = db.query(User).filter_by(username="admin").first()
         if not admin:
             admin = User(
-                email="admin@admin.com",
-                password_hash=get_password_hash("admin"),
+                username="admin",
+                password_hash=hash_password("admin"),
                 name="Admin",
                 role="admin"
             )
             db.add(admin)
 
-        test = db.query(User).filter_by(email="test@test.com").first()
+        test = db.query(User).filter_by(username="test").first()
         if not test:
             test = User(
-                email="test@test.com",
-                password_hash=get_password_hash("secret123"),
+                username="test",
+                password_hash=hash_password("secret123"),
                 name="Test",
                 role="user"
             )

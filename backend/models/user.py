@@ -1,12 +1,12 @@
 from sqlalchemy import Column, BigInteger, String, Text, DateTime, func
-from backend.db.base import Base
+from db.base import Base
 
 class User(Base):
     __tablename__ = "users"
 
     id = Column(BigInteger, primary_key=True, index=True)
 
-    email = Column(String(255), unique=True, nullable=False)
+    username = Column(String(255), unique=True, nullable=False)
     password_hash = Column(Text, nullable=False)
 
     name = Column(String(255))

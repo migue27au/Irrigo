@@ -1,7 +1,7 @@
 from sqlalchemy import Column, BigInteger, String, DateTime, ForeignKey, UniqueConstraint
 from sqlalchemy.sql import func
 
-from backend.db.base import Base
+from db.base import Base
 
 
 class SystemUser(Base):

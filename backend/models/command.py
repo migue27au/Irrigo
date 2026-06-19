@@ -1,7 +1,7 @@
 from sqlalchemy import Column, BigInteger, Integer, String, Text, DateTime, ForeignKey, Index
 from sqlalchemy.sql import func
 
-from backend.db.base import Base
+from db.base import Base
 
 
 class Command(Base):

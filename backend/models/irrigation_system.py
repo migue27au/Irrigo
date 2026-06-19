@@ -1,7 +1,7 @@
 from sqlalchemy import Column, BigInteger, String, Text, DateTime
 from sqlalchemy.sql import func
 
-from backend.db.base import Base
+from db.base import Base
 
 
 class IrrigationSystem(Base):

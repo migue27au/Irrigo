@@ -1,13 +1,28 @@
-from backend.db.base import Base
-from backend.db.db import engine
+import time, traceback
+from sqlalchemy import text
 
-#  TODO: importar todos los modelos para que SQLAlchemy los registre
-from backend.models.user import User
-# luego añadirás:
-# from backend.models.system import IrrigationSystem
-# from backend.models.sensor import Sensor
-# etc.
+from db.base import Base
+from db.db import engine
+
+from models.user import User
+
+
+def wait_for_db():
+    for i in range(30):
+        try:
+            with engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+                print("Database ready")
+                return
+
+        except Exception as e:
+            print(f"Waiting for database... ({i+1}/30)")
+            print(traceback.format_exc())
+            time.sleep(2)
+
+    raise Exception("Database not available")
 
 
 def init_db():
+    wait_for_db()
     Base.metadata.create_all(bind=engine)

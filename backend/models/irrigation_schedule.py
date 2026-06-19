@@ -1,7 +1,7 @@
 from sqlalchemy import Column, BigInteger, String, Integer, Boolean, DateTime, ForeignKey
 from sqlalchemy.sql import func
 
-from backend.db.base import Base
+from db.base import Base
 
 
 class IrrigationSchedule(Base):

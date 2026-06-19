@@ -2,7 +2,7 @@ from sqlalchemy import Column, BigInteger, DateTime, ForeignKey
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.sql import func
 
-from backend.db.base import Base
+from db.base import Base
 
 
 class TelemetryRaw(Base):

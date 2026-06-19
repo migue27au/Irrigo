@@ -1,6 +1,6 @@
 from sqlalchemy import Column, BigInteger, String, Numeric, ForeignKey
 
-from backend.db.base import Base
+from db.base import Base
 
 
 class RuleCondition(Base):

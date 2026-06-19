@@ -1,62 +1,64 @@
-version: "3.9"
-
 services:
 
-  # POSTGRES DATABASE
   db:
-    image: postgres:16
-    container_name: irrigo_postgres
-    restart: always
-
-    environment:
-      POSTGRES_USER: iot_user
-      POSTGRES_PASSWORD: iot_password
-      POSTGRES_DB: irrigo_db
-
-    ports:
-      - "5432:5432"
+    image: postgres:17
+    container_name: irrigo-db
+    
+    env_file:
+    - .env
 
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
+    ports:
+      - "5432:5432"
     networks:
       - irrigo_net
+    
+    #restart: unless-stopped
 
-
-  # FASTAPI BACKEND
   backend:
-    build: .
-    container_name: irrigo_backend
-    #restart: always
+    build:
+      context: ./backend
+
+    container_name: irrigo-backend
 
     depends_on:
       - db
 
-    environment:
-      PYTHONDONTWRITEBYTECODE: 1
-      DATABASE_URL: postgresql+psycopg2://iot_user:iot_password@db:5432/irrigo_db
-      SECRET_KEY: super-secret-key
-      DEVICE_API_KEY_SECRET: esp32-secret
+    env_file:
+    - .env
 
     ports:
       - "8000:8000"
-
-    volumes:
-      - .:/backend
-
-    command: >
-      uvicorn backend.main:app
-      --host 0.0.0.0
-      --port 8000
-      --reload
-
     networks:
       - irrigo_net
 
+    #restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: ${VITE_API_URL}
+
+    container_name: irrigo-frontend
+
+    depends_on:
+      - backend
+    
+    env_file:
+    - .env
+    
+    ports:
+      - "3000:80"
+
+    #restart: unless-stopped
+    networks:
+      - irrigo_net
 
 volumes:
   postgres_data:
-
 
 networks:
   irrigo_net:

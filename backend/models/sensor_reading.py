@@ -1,6 +1,6 @@
 from sqlalchemy import Column, BigInteger, Numeric, DateTime, ForeignKey, Index
 
-from backend.db.base import Base
+from db.base import Base
 
 
 class SensorReading(Base):

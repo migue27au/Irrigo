@@ -95,7 +95,7 @@ def login_admin():
     r = request(
         "POST",
         "/auth/login",
-        json_body={"email": "admin@admin.com", "password": "admin"}
+        json_body={"username": "admin", "password": "admin"}
     )
     assert r.status_code == 200
     return r.json()["access_token"]
@@ -105,7 +105,7 @@ def login_user():
     r = request(
         "POST",
         "/auth/login",
-        json_body={"email": "test@test.com", "password": "secret123"}
+        json_body={"username": "test", "password": "secret123"}
     )
     assert r.status_code == 200
     return r.json()["access_token"]
@@ -153,7 +153,7 @@ def test_create_user_no_auth():
         "POST",
         "/users/",
         json_body={
-            "email": "x@test.com",
+            "username": "x",
             "password": "secret123",
             "name": "X"
         }
@@ -206,7 +206,7 @@ def test_user_cannot_create_user():
         "/users/",
         headers=auth_headers(token),
         json_body={
-            "email": "hack@test.com",
+            "username": "hack",
             "password": "secret123",
             "name": "Hack"
         }
@@ -257,7 +257,7 @@ def test_admin_can_create_user():
         "/users/",
         headers=auth_headers(token),
         json_body={
-            "email": "dummy@test.com",
+            "username": "dummy",
             "password": "secret123",
             "name": "Dummy"
         }

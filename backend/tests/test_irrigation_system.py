@@ -89,7 +89,7 @@ def login_admin():
     r = request(
         "POST",
         "/auth/login",
-        json_body={"email": "admin@admin.com", "password": "admin"}
+        json_body={"username": "admin", "password": "admin"}
     )
     assert r.status_code == 200
     return r.json()["access_token"]
@@ -99,7 +99,7 @@ def login_user():
     r = request(
         "POST",
         "/auth/login",
-        json_body={"email": "test@test.com", "password": "secret123"}
+        json_body={"username": "test", "password": "secret123"}
     )
     assert r.status_code == 200
     return r.json()["access_token"]

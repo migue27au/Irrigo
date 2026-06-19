@@ -3,12 +3,12 @@ from sqlalchemy.orm import Session
 import secrets
 import hashlib
 
-from backend.api.deps import get_db, get_current_user, get_system_with_access
+from api.deps import get_db, get_current_user, get_system_with_access
 
-from backend.models.irrigation_system import IrrigationSystem
-from backend.models.system_user import SystemUser
+from models.irrigation_system import IrrigationSystem
+from models.system_user import SystemUser
 
-from backend.schemas.irrigation_system import (
+from schemas.irrigation_system import (
     IrrigationSystemCreate,
     IrrigationSystemUpdate,
     IrrigationSystemOut,
