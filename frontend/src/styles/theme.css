@@ -57,3 +57,7 @@ a:hover {
   border-color: var(--green);
   box-shadow: 0 0 0 0.2rem var(--green-soft);
 }
+
+.system-item:hover {
+  background-color: #14532d;
+}

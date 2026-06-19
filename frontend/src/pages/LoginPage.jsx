@@ -4,6 +4,12 @@ import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 
 function LoginPage() {
+  const { token } = useAuth();
+
+  if (token) {
+      return <Navigate to="/dashboard" replace />;
+  }
+
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
 

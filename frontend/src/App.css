@@ -182,3 +182,56 @@
     border-right-color: var(--border);
   }
 }
+
+.irrigo-navbar {
+  background-color: #0b0f0c;
+  border-bottom: 1px solid #1f3a2a;
+}
+
+.irrigo-navbar .nav-link {
+  color: #b7d9c0;
+}
+
+.irrigo-navbar .nav-link:hover {
+  color: #3ddc84;
+}
+
+.irrigo-navbar .navbar-brand {
+  font-size: 1.2rem;
+}
+
+.irrigo-navbar .vr {
+  opacity: 0.4;
+}
+
+.systems-layout {
+    display: flex;
+    gap: 1rem;
+    padding: 1rem;
+    height: calc(100vh - 70px);
+}
+
+.systems-sidebar {
+    width: 320px;
+    flex-shrink: 0;
+
+    background-color: #1d242b;
+    border: 1px solid #2c353d;
+    border-radius: 12px;
+
+    padding: 1rem;
+
+    overflow-y: auto;
+}
+
+.systems-content {
+    flex: 1;
+
+    background-color: #1d242b;
+    border: 1px solid #2c353d;
+    border-radius: 12px;
+
+    padding: 1.5rem;
+
+    overflow-y: auto;
+}

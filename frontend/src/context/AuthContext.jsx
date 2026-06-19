@@ -1,36 +1,44 @@
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useState, useEffect } from "react";
 
 const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
+  const [token, setToken] = useState(localStorage.getItem("token"));
+  const [user, setUser] = useState(null);
 
-    const [token, setToken] = useState(
-        localStorage.getItem("token")
-    );
+  // opcional: decodificar JWT (si tienes info dentro)
+  useEffect(() => {
+    if (!token) {
+      setUser(null);
+      return;
+    }
 
-    const login = (jwt) => {
-        localStorage.setItem("token", jwt);
-        setToken(jwt);
-    };
+    try {
+      const payload = JSON.parse(atob(token.split(".")[1]));
+      setUser(payload);
+    } catch {
+      setUser({}); // fallback: “logged in”
+    }
+  }, [token]);
 
-    const logout = () => {
-        localStorage.removeItem("token");
-        setToken(null);
-    };
+  const login = (jwt) => {
+    localStorage.setItem("token", jwt);
+    setToken(jwt);
+  };
 
-    return (
-        <AuthContext.Provider
-            value={{
-                token,
-                login,
-                logout
-            }}
-        >
-            {children}
-        </AuthContext.Provider>
-    );
+  const logout = () => {
+    localStorage.removeItem("token");
+    setToken(null);
+    setUser(null);
+  };
+
+  return (
+    <AuthContext.Provider value={{ token, user, login, logout }}>
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth() {
-    return useContext(AuthContext);
+  return useContext(AuthContext);
 }
