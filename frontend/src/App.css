@@ -235,3 +235,21 @@
 
     overflow-y: auto;
 }
+
+.irrigo-select {
+  background-color: #1d242b;
+  color: #b7d9c0;
+  border: 1px solid #2c353d;
+}
+
+.irrigo-select:focus {
+  background-color: #1d242b;
+  color: #b7d9c0;
+  border-color: #3ddc84;
+  box-shadow: 0 0 0 0.2rem rgba(61, 220, 132, 0.15);
+}
+
+.irrigo-select option {
+  background-color: #1d242b;
+  color: #b7d9c0;
+}

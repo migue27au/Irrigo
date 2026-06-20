@@ -3,7 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 export default function AppNavbar() {
-    const { token, logout } = useAuth();
+    const { token, logout, user } = useAuth();
+
     const isDisabled = !token;
 
     const navigate = useNavigate();
@@ -46,7 +47,9 @@ export default function AppNavbar() {
             {isDisabled ? (
                 <DisabledItem>Profile</DisabledItem>
             ) : (
-                <Link className="nav-link" to="/profile">Profile</Link>
+                <span className="nav-link text-success fw-semibold">
+                    {user?.username || "user"}
+                </span>
             )}
             <button className="btn btn-outline-success btn-sm" onClick={handleLogout} disabled={isDisabled}>Logout</button>
         </div>

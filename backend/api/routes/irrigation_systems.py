@@ -7,12 +7,17 @@ from api.deps import get_db, get_current_user, get_system_with_access
 
 from models.irrigation_system import IrrigationSystem
 from models.system_user import SystemUser
+from models.user import User
 
 from schemas.irrigation_system import (
     IrrigationSystemCreate,
     IrrigationSystemUpdate,
     IrrigationSystemOut,
+)
+
+from schemas.system_user import (
     ShareSystemRequest,
+    SharedUserOut
 )
 
 router = APIRouter(prefix="/irrigation-systems", tags=["Irrigation Systems"])
@@ -24,31 +29,29 @@ router = APIRouter(prefix="/irrigation-systems", tags=["Irrigation Systems"])
 def create_system(
     data: IrrigationSystemCreate,
     db: Session = Depends(get_db),
-    user = Depends(get_current_user),
+    user=Depends(get_current_user),
 ):
     raw_api_key = secrets.token_hex(32)
-    api_key_hash = hashlib.sha256(raw_api_key.encode()).hexdigest()
 
     system = IrrigationSystem(
         alias=data.alias,
         description=data.description,
-        api_key_hash=api_key_hash,
+        api_key=raw_api_key,
     )
 
     db.add(system)
     db.flush()
 
-    db.add(SystemUser(
-        system_id=system.id,
-        user_id=user.id,
-        role="owner"
-    ))
+    db.add(
+        SystemUser(
+            system_id=system.id,
+            user_id=user.id,
+            role="owner",
+        )
+    )
 
     db.commit()
     db.refresh(system)
-
-    # solo se devuelve una vez
-    system.api_key_plain = raw_api_key
 
     return system
 
@@ -78,7 +81,7 @@ def get_my_systems(
 def get_system(
     system_id: int,
     db: Session = Depends(get_db),
-    user = Depends(get_current_user),
+    user=Depends(get_current_user),
 ):
     system, role = get_system_with_access(
         db=db,
@@ -86,6 +89,20 @@ def get_system(
         user_id=user.id,
         require_role="viewer"
     )
+
+    owner_relation = db.query(SystemUser).filter(
+        SystemUser.system_id == system_id,
+        SystemUser.role == "owner"
+    ).first()
+
+    owner_username = None
+
+    if owner_relation:
+        owner_username = db.query(User.username).filter(
+            User.id == owner_relation.user_id
+        ).scalar()
+
+    system.owner_username = owner_username
 
     return system
 
@@ -144,6 +161,57 @@ def delete_system(
     return {"status": "deleted"}
 
 
+# -----------------------------------------------------
+# GET APIKEY (owner only)
+# -----------------------------------------------------
+@router.get("/{system_id}/apikey")
+def get_api_key(
+    system_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    system, role = get_system_with_access(
+        db=db,
+        system_id=system_id,
+        user_id=user.id,
+        require_role="owner",
+    )
+
+    return {
+        "api_key": system.api_key
+    }
+
+# -----------------------------------------------------
+# REGENERATE APIKEY (owner only)
+# -----------------------------------------------------
+@router.post("/{system_id}/apikey/regenerate")
+def regenerate_api_key(
+    system_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    system, role = get_system_with_access(
+        db=db,
+        system_id=system_id,
+        user_id=user.id,
+        require_role="owner",
+    )
+
+    new_api_key = secrets.token_hex(32)
+
+    system.api_key = new_api_key
+
+    db.commit()
+    db.refresh(system)
+
+    return {
+        "api_key": new_api_key
+    }
+
+
+# -----------------------------------------------------
+# SHARE SYSTEM (owner only)
+# -----------------------------------------------------
 @router.post("/{system_id}/share")
 def share_system(
     system_id: int,
@@ -158,7 +226,17 @@ def share_system(
         require_role="owner"
     )
 
-    if payload.user_id == user.id:
+    target_user = db.query(User).filter(
+        User.username == payload.username
+    ).first()
+
+    if not target_user:
+        raise HTTPException(
+            status_code=404,
+            detail="User not found"
+        )
+
+    if target_user.id == user.id:
         raise HTTPException(
             status_code=400,
             detail="Cannot modify your own role"
@@ -172,7 +250,7 @@ def share_system(
 
     relation = db.query(SystemUser).filter_by(
         system_id=system_id,
-        user_id=payload.user_id
+        user_id=target_user.id
     ).first()
 
     if relation:
@@ -181,7 +259,7 @@ def share_system(
         db.add(
             SystemUser(
                 system_id=system_id,
-                user_id=payload.user_id,
+                user_id=target_user.id,
                 role=payload.role
             )
         )
@@ -190,5 +268,87 @@ def share_system(
 
     return {
         "status": "ok",
+        "username": target_user.username,
         "role": payload.role
     }
+
+# -----------------------------------------------------
+# GET USERS SHARED SYSTEM (maintainer only)
+# -----------------------------------------------------
+@router.get("/{system_id}/shared-users", response_model=list[SharedUserOut])
+def get_shared_users(
+    system_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+
+    system, role = get_system_with_access(
+        db=db,
+        system_id=system_id,
+        user_id=user.id,
+        require_role="maintainer"
+    )
+
+    relations = (
+        db.query(SystemUser, User)
+        .join(User, User.id == SystemUser.user_id)
+        .filter(SystemUser.system_id == system_id)
+        .all()
+    )
+
+    return [
+        SharedUserOut(
+            id=rel.id,
+            user_id=u.id,
+            username=u.username,
+            name=u.name,
+            role=rel.role
+        )
+        for rel, u in relations
+    ]
+
+# -----------------------------------------------------
+# DELETE USERS SHARED SYSTEM (owner only)
+# -----------------------------------------------------
+@router.delete("/{system_id}/share/{user_id}")
+def unshare_user_from_system(
+    system_id: int,
+    user_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    system, role = get_system_with_access(
+        db=db,
+        system_id=system_id,
+        user_id=user.id,
+        require_role="owner"
+    )
+
+    relation = db.query(SystemUser).filter_by(
+        system_id=system_id,
+        user_id=user_id
+    ).first()
+
+    if not relation:
+        raise HTTPException(
+            status_code=404,
+            detail="User is not shared with this system"
+        )
+    # No permitir eliminarse a uno mismo de los share
+    if relation.user_id == user.id:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot remove yourself from system"
+        )
+
+    # no permitir quitar al owner
+    if relation.role == "owner":
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot remove owner from system"
+        )
+
+    db.delete(relation)
+    db.commit()
+
+    return {"status": "removed"}

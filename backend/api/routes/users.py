@@ -8,6 +8,12 @@ from api.deps import get_db, get_current_admin, get_current_user
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
+# Get current user
+@router.get("/me", response_model=UserResponse)
+def get_me(
+    current_user: User = Depends(get_current_user)
+):
+    return current_user
 
 # LIST ALL USERS
 @router.get("/", response_model=list[UserResponse])

@@ -250,7 +250,7 @@ def test_owner_share_system():
         f"/irrigation-systems/{system_id}/share",
         headers=auth_headers(token),
         json_body={
-            "user_id": 1,
+            "username": "admin",
             "role": "viewer"
         }
     )
@@ -269,7 +269,7 @@ def test_non_owner_cannot_share():
         f"/irrigation-systems/{system_id}/share",
         headers=auth_headers(token2),
         json_body={
-            "user_id": 3,
+            "username": "test",
             "role": "viewer"
         }
     )

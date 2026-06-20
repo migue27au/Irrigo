@@ -23,10 +23,9 @@ class IrrigationSystemOut(IrrigationSystemBase):
     last_seen_at: datetime | None
     created_at: datetime
     updated_at: datetime
+    owner_username: str | None = None
+
 
     class Config:
         from_attributes = True
 
-class ShareSystemRequest(BaseModel):
-    user_id: int
-    role: str = "viewer"

@@ -9,7 +9,7 @@ class IrrigationSystem(Base):
 
     id = Column(BigInteger, primary_key=True, index=True)
 
-    api_key_hash = Column(Text, nullable=False)
+    api_key = Column(Text, nullable=False)
 
     alias = Column(String(255), nullable=False)
     description = Column(Text)

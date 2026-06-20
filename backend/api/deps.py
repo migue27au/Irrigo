@@ -57,11 +57,8 @@ def get_system_by_api_key(
     db: Session = Depends(get_db),
 ) -> IrrigationSystem:
 
-    # hash de la key recibida
-    api_key_hash = hashlib.sha256(apikey.encode()).hexdigest()
-
     system = db.query(IrrigationSystem).filter(
-        IrrigationSystem.api_key_hash == api_key_hash
+        IrrigationSystem.api_key == apikey
     ).first()
 
     if not system:
