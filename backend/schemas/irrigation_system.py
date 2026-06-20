@@ -24,6 +24,7 @@ class IrrigationSystemOut(IrrigationSystemBase):
     created_at: datetime
     updated_at: datetime
     owner_username: str | None = None
+    role: str | None = None
 
 
     class Config:

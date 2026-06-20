@@ -8,6 +8,7 @@ from api.deps import get_db, get_current_user, get_system_with_access
 from models.irrigation_system import IrrigationSystem
 from models.system_user import SystemUser
 from models.user import User
+from models.system_sensor import Sensor
 
 from schemas.irrigation_system import (
     IrrigationSystemCreate,
@@ -19,6 +20,8 @@ from schemas.system_user import (
     ShareSystemRequest,
     SharedUserOut
 )
+
+from schemas.sensor import SensorOut
 
 router = APIRouter(prefix="/irrigation-systems", tags=["Irrigation Systems"])
 
@@ -103,6 +106,7 @@ def get_system(
         ).scalar()
 
     system.owner_username = owner_username
+    system.role = role
 
     return system
 
@@ -352,3 +356,33 @@ def unshare_user_from_system(
     db.commit()
 
     return {"status": "removed"}
+
+# -----------------------------------------------------
+# GET SYSTEM SENSORS
+# -----------------------------------------------------
+@router.get(
+    "/{system_id}/sensors",
+    response_model=list[SensorOut]
+)
+def get_system_sensors(
+    system_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    system, role = get_system_with_access(
+        db=db,
+        system_id=system_id,
+        user_id=user.id,
+        require_role="viewer"
+    )
+
+    return (
+        db.query(Sensor)
+        .filter(
+            Sensor.system_id == system_id
+        )
+        .order_by(
+            Sensor.name
+        )
+        .all()
+    )

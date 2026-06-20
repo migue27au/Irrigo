@@ -35,9 +35,9 @@ export default function AppNavbar() {
             )}
 
             {isDisabled ? (
-                <DisabledItem>Data</DisabledItem>
+                <DisabledItem>Measures</DisabledItem>
             ) : (
-                <Link className="nav-link" to="/data">Data</Link>
+                <Link className="nav-link" to="/measures">Measures</Link>
             )}
 
         </div>

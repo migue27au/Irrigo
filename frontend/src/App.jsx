@@ -5,6 +5,7 @@ import LandingPage from "./pages/LandingPage";
 import LoginPage from "./pages/LoginPage";
 import DashboardPage from "./pages/DashboardPage";
 import SystemsPage from "./pages/SystemsPage";
+import MeasuresPage from "./pages/MeasuresPage";
 
 import AppNavbar from "./components/AppNavbar";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -50,6 +51,15 @@ function App() {
                     element={
                         <ProtectedRoute>
                             <SystemsPage />
+                        </ProtectedRoute>
+                    }
+                />
+
+                <Route
+                    path="/measures"
+                    element={
+                        <ProtectedRoute>
+                            <MeasuresPage />
                         </ProtectedRoute>
                     }
                 />

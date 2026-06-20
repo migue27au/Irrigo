@@ -8,8 +8,10 @@ from db.db import SessionLocal
 from models.user import User
 from models.irrigation_system import IrrigationSystem
 from models.system_user import SystemUser
+from models.system_sensor import Sensor
 
 security = HTTPBearer()
+
 
 def get_db():
     db = SessionLocal()
@@ -53,19 +55,18 @@ def get_current_admin(
 
 
 def get_system_by_api_key(
-    apikey: str = Header(..., alias="APIKEY"),
+    x_api_key: str = Header(None),
     db: Session = Depends(get_db),
-) -> IrrigationSystem:
+):
+    if not x_api_key:
+        raise HTTPException(status_code=401, detail="Missing API key")
 
     system = db.query(IrrigationSystem).filter(
-        IrrigationSystem.api_key == apikey
+        IrrigationSystem.api_key == x_api_key
     ).first()
 
     if not system:
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid API key"
-        )
+        raise HTTPException(status_code=401, detail="Invalid API key")
 
     return system
 
@@ -105,7 +106,10 @@ def get_system_with_access(
     ).first()
 
     if not system:
-        raise HTTPException(status_code=404, detail="System not found")
+        raise HTTPException(
+            status_code=404,
+            detail="System not found"
+        )
 
     relation = db.query(SystemUser).filter_by(
         system_id=system_id,
@@ -113,7 +117,10 @@ def get_system_with_access(
     ).first()
 
     if not relation:
-        raise HTTPException(status_code=403, detail="No access to system")
+        raise HTTPException(
+            status_code=403,
+            detail="No access to system"
+        )
 
     user_role = relation.role
 
@@ -125,3 +132,55 @@ def get_system_with_access(
             )
 
     return system, user_role
+
+
+def get_sensor_with_access(
+    db: Session,
+    sensor_id: int,
+    user_id: int,
+    require_role: str | None = None,
+):
+    """
+    Returns (sensor, user_role)
+
+    require_role:
+        - None → any access
+        - "viewer"
+        - "maintainer"
+        - "owner"
+
+    Roles are hierarchical:
+        owner > maintainer > viewer
+    """
+
+    sensor = db.query(Sensor).filter(
+        Sensor.id == sensor_id
+    ).first()
+
+    if not sensor:
+        raise HTTPException(
+            status_code=404,
+            detail="Sensor not found"
+        )
+
+    relation = db.query(SystemUser).filter_by(
+        system_id=sensor.system_id,
+        user_id=user_id
+    ).first()
+
+    if not relation:
+        raise HTTPException(
+            status_code=403,
+            detail="No access to sensor"
+        )
+
+    user_role = relation.role
+
+    if require_role:
+        if not _has_required_role(user_role, require_role):
+            raise HTTPException(
+                status_code=403,
+                detail=f"Requires {require_role} role"
+            )
+
+    return sensor, user_role

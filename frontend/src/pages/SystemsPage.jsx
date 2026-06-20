@@ -21,6 +21,9 @@ export default function SystemsPage() {
   const [sharedUsers, setSharedUsers] = useState([]);
   const [loadingSharedUsers, setLoadingSharedUsers] = useState(false);
 
+  const [sensors, setSensors] = useState([]);
+  const [editingSensors, setEditingSensors] = useState({});
+
   // -----------------------------
   // SYSTEM LIST
   // -----------------------------
@@ -55,14 +58,53 @@ export default function SystemsPage() {
     setEditAlias(selected.alias || "");
     setEditDescription(selected.description || "");
 
-    loadApiKey(selected.id);
-    loadSharedUsers(selected.id);
+    loadApiKey(selected.id, selected.role);
+    loadSharedUsers(selected.id, selected.role);
+    loadSensors(selected.id);
+
   }, [selected]);
+
+  // -----------------------------
+  // SENSORS
+  // -----------------------------
+  const loadSensors = async (systemId) => {
+    try {
+      const res = await api.get(`/irrigation-systems/${systemId}/sensors`);
+      setSensors(res.data);
+    } catch (err) {
+      setSensors([]);
+      error("Failed to load sensors");
+    }
+  };
+
+  const updateSensorName = async (sensor) => {
+    try {
+      await api.put(`/sensors/${sensor.id}`, {
+        name: editingSensors[sensor.id],
+      });
+
+      success("Sensor updated");
+
+      setSensors((prev) =>
+        prev.map((s) =>
+          s.id === sensor.id
+            ? { ...s, name: editingSensors[sensor.id] }
+            : s
+        )
+      );
+    } catch (err) {
+      error("Failed to update sensor");
+    }
+  };
 
   // -----------------------------
   // API KEY
   // -----------------------------
-  const loadApiKey = async (systemId) => {
+  const loadApiKey = async (systemId, role) => {
+    if (role !== "owner"){
+      setApiKey("");
+      return;
+    }
     try {
       setLoadingApiKey(true);
 
@@ -73,8 +115,6 @@ export default function SystemsPage() {
       setApiKey(res.data.api_key);
     } catch (err) {
       setApiKey("");
-
-      if (err?.response?.status === 403) return;
 
       error("Failed to load API key");
     } finally {
@@ -110,7 +150,11 @@ export default function SystemsPage() {
   // -----------------------------
   // SHARED USERS
   // -----------------------------
-  const loadSharedUsers = async (systemId) => {
+  const loadSharedUsers = async (systemId, role) => {
+    if (!["owner", "maintainer"].includes(role)){
+      setSharedUsers([]);
+      return;
+    }
     try {
       setLoadingSharedUsers(true);
 
@@ -121,9 +165,6 @@ export default function SystemsPage() {
       setSharedUsers(res.data);
     } catch (err) {
       setSharedUsers([]);
-
-      if (err?.response?.status === 403) return;
-
       error("Failed to load shared users");
     } finally {
       setLoadingSharedUsers(false);
@@ -291,6 +332,15 @@ export default function SystemsPage() {
             </div>
 
             <div className="mb-3">
+              <label className="form-label">Role</label>
+              <input
+                className="form-control"
+                value={selected?.role || "Unknown"}
+                readOnly
+              />
+            </div>
+
+            <div className="mb-3">
               <label className="form-label">Description</label>
               <textarea
                 className="form-control"
@@ -421,6 +471,53 @@ export default function SystemsPage() {
                 Delete
               </button>
             </div>
+
+            {/* SENSORS TABLE */}
+            <h5>Sensors</h5>
+
+            <table className="table table-dark table-striped">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Key</th>
+                  <th>Name</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {sensors.map((s) => (
+                  <tr key={s.id}>
+                    <td>{s.id}</td>
+                    <td>{s.sensor_key}</td>
+
+                    <td>
+                      <input
+                        className="form-control"
+                        value={
+                          editingSensors[s.id] ?? s.name
+                        }
+                        onChange={(e) =>
+                          setEditingSensors((prev) => ({
+                            ...prev,
+                            [s.id]: e.target.value,
+                          }))
+                        }
+                      />
+                    </td>
+
+                    <td>
+                      <button
+                        className="btn btn-sm btn-success"
+                        onClick={() => updateSensorName(s)}
+                      >
+                        Save
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </>
         )}
       </div>

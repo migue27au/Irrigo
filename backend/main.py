@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from api.routes.users import router as users_router
 from api.routes.auth import router as auth_router
 from api.routes.irrigation_systems import router as irrigation_systems_router
+from api.routes.sensors import router as sensors_router
 
 from db.init_db import init_db
 
@@ -12,6 +13,7 @@ app = FastAPI(title="IoT Irrigation System")
 app.include_router(users_router)
 app.include_router(auth_router)
 app.include_router(irrigation_systems_router)
+app.include_router(sensors_router)
 
 
 app.add_middleware(
