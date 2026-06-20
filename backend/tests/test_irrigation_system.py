@@ -99,7 +99,7 @@ def login_user():
     r = request(
         "POST",
         "/auth/login",
-        json_body={"username": "test", "password": "secret123"}
+        json_body={"username": "test", "password": "test"}
     )
     assert r.status_code == 200
     return r.json()["access_token"]
@@ -426,6 +426,98 @@ def test_system_has_owner_username():
     assert "owner_username" in data
 
 # =========================================================
+# API KEY
+# =========================================================
+def test_owner_can_get_apikey():
+    token = login_user()
+    system_id = SYSTEM_CACHE.get("system_id") or test_user_create_system()
+
+    r = request(
+        "GET",
+        f"/irrigation-systems/{system_id}/apikey",
+        headers=auth_headers(token)
+    )
+
+    assert r.status_code == 200
+    assert "api_key" in r.json()
+
+def test_viewer_cannot_get_apikey():
+    owner_token = login_user()
+    system_id = SYSTEM_CACHE.get("system_id") or test_user_create_system()
+
+    request(
+        "POST",
+        f"/irrigation-systems/{system_id}/share",
+        headers=auth_headers(owner_token),
+        json_body={
+            "username": "admin",
+            "role": "viewer"
+        }
+    )
+
+    admin_token = login_admin()
+
+    r = request(
+        "GET",
+        f"/irrigation-systems/{system_id}/apikey",
+        headers=auth_headers(admin_token)
+    )
+
+    assert r.status_code == 403
+
+def test_owner_can_regenerate_apikey():
+    token = login_user()
+    system_id = SYSTEM_CACHE.get("system_id") or test_user_create_system()
+
+    r = request(
+        "POST",
+        f"/irrigation-systems/{system_id}/apikey/regenerate",
+        headers=auth_headers(token)
+    )
+
+    assert r.status_code == 200
+    assert "api_key" in r.json()
+
+def test_viewer_cannot_regenerate_apikey():
+    owner_token = login_user()
+    system_id = SYSTEM_CACHE.get("system_id") or test_user_create_system()
+
+    request(
+        "POST",
+        f"/irrigation-systems/{system_id}/share",
+        headers=auth_headers(owner_token),
+        json_body={
+            "username": "admin",
+            "role": "viewer"
+        }
+    )
+
+    admin_token = login_admin()
+
+    r = request(
+        "POST",
+        f"/irrigation-systems/{system_id}/apikey/regenerate",
+        headers=auth_headers(admin_token)
+    )
+
+    assert r.status_code == 403
+
+# =========================================================
+# SYSTEM SENSORS
+# =========================================================
+def test_user_can_list_system_sensors():
+    token = login_user()
+    system_id = SYSTEM_CACHE.get("system_id")
+
+    r = request(
+        "GET",
+        f"/irrigation-systems/{system_id}/sensors",
+        headers=auth_headers(token)
+    )
+
+    assert r.status_code == 200
+
+# =========================================================
 # MAIN
 # =========================================================
 
@@ -443,16 +535,25 @@ if __name__ == "__main__":
         ("owner_share_system", test_owner_share_system),
         ("non_owner_cannot_share", test_non_owner_cannot_share),
 
-        # SHARED USERS (NEW)
+        # SHARED USERS
         ("get_shared_users_as_owner", test_get_shared_users_as_owner),
         ("get_shared_users_forbidden_for_viewer", test_get_shared_users_forbidden_for_viewer),
 
-        # UNSHARE (NEW)
+        # UNSHARE
         ("unshare_user_from_system", test_unshare_user_from_system),
         ("cannot_unshare_owner", test_cannot_unshare_owner),
 
-        # OWNER FIELD (NEW)
+        # OWNER FIELD
         ("system_has_owner_username", test_system_has_owner_username),
+
+        # API KEY
+        ("owner_can_get_apikey", test_owner_can_get_apikey),
+        ("viewer_cannot_get_apikey", test_viewer_cannot_get_apikey),
+        ("owner_can_regenerate_apikey", test_owner_can_regenerate_apikey),
+        ("viewer_cannot_regenerate_apikey", test_viewer_cannot_regenerate_apikey),
+
+        # SYSTEM SENSORS
+        ("user_can_list_system_sensors", test_user_can_list_system_sensors),
 
         # DELETE
         ("delete_no_auth", test_delete_no_auth),
@@ -466,7 +567,7 @@ if __name__ == "__main__":
 
     for name, fn in tests:
         run_test(name, fn)
-        time.sleep(1)
+        time.sleep(0.2)
 
         try:
             passed += 1

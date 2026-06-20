@@ -105,7 +105,7 @@ def login_user():
     r = request(
         "POST",
         "/auth/login",
-        json_body={"username": "test", "password": "secret123"}
+        json_body={"username": "test", "password": "test"}
     )
     assert r.status_code == 200
     return r.json()["access_token"]
@@ -168,7 +168,7 @@ def test_create_user_no_auth():
         "/users/",
         json_body={
             "username": "x",
-            "password": "secret123",
+            "password": "test",
             "name": "X"
         }
     )
@@ -221,7 +221,7 @@ def test_user_cannot_create_user():
         headers=auth_headers(token),
         json_body={
             "username": "hack",
-            "password": "secret123",
+            "password": "test",
             "name": "Hack"
         }
     )
@@ -272,7 +272,7 @@ def test_admin_can_create_user():
         headers=auth_headers(token),
         json_body={
             "username": "dummy",
-            "password": "secret123",
+            "password": "test",
             "name": "Dummy"
         }
     )
@@ -290,6 +290,7 @@ def test_admin_can_delete_user():
     )
 
     assert r.status_code in (200, 204)
+
 
 
 # =========================================================
@@ -329,7 +330,7 @@ if __name__ == "__main__":
         run_test(name, fn)
 
         # intervalo entre tests
-        time.sleep(1)
+        time.sleep(0.2)
 
         try:
             passed += 1
