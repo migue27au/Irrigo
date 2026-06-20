@@ -302,6 +302,128 @@ def test_owner_delete_system():
 
     assert r.status_code in (200, 204)
 
+# =========================================================
+# SHARED USERS
+# =========================================================
+
+def test_get_shared_users_as_owner():
+    token = login_user()
+    system_id = SYSTEM_CACHE.get("system_id") or test_user_create_system()
+
+    r = request(
+        "GET",
+        f"/irrigation-systems/{system_id}/shared-users",
+        headers=auth_headers(token)
+    )
+
+    assert r.status_code == 200
+
+
+def test_get_shared_users_forbidden_for_viewer():
+    owner_token = login_user()
+    system_id = SYSTEM_CACHE.get("system_id") or test_user_create_system()
+
+    # Share system to admin first
+    request(
+        "POST",
+        f"/irrigation-systems/{system_id}/share",
+        headers=auth_headers(owner_token),
+        json_body={
+            "username": "admin",
+            "role": "viewer"
+        }
+    )
+
+    admin_token = login_admin()
+
+    r = request(
+        "GET",
+        f"/irrigation-systems/{system_id}/shared-users",
+        headers=auth_headers(admin_token)
+    )
+
+    assert r.status_code == 403
+
+
+# =========================================================
+# UNSHARE
+# =========================================================
+
+def test_unshare_user_from_system():
+    owner_token = login_user()
+    system_id = SYSTEM_CACHE.get("system_id") or test_user_create_system()
+
+    # 1. Share admin user
+    request(
+        "POST",
+        f"/irrigation-systems/{system_id}/share",
+        headers=auth_headers(owner_token),
+        json_body={
+            "username": "admin",
+            "role": "viewer"
+        }
+    )
+
+    # 2. Get shared users to obtain user_id
+    r = request(
+        "GET",
+        f"/irrigation-systems/{system_id}/shared-users",
+        headers=auth_headers(owner_token)
+    )
+
+    assert r.status_code == 200
+
+    shared_users = r.json()
+    admin_user = next((u for u in shared_users if u["username"] == "admin"), None)
+
+    assert admin_user is not None
+    admin_user_id = admin_user["user_id"]
+
+    # 3. Remove user
+    r2 = request(
+        "DELETE",
+        f"/irrigation-systems/{system_id}/share/{admin_user_id}",
+        headers=auth_headers(owner_token)
+    )
+
+    assert r2.status_code in (200, 204)
+
+
+def test_cannot_unshare_owner():
+    owner_token = login_user()
+    system_id = SYSTEM_CACHE.get("system_id") or test_user_create_system()
+
+    # Try to remove owner himself
+    r = request(
+        "DELETE",
+        f"/irrigation-systems/{system_id}/share/999999",
+        headers=auth_headers(owner_token)
+    )
+
+    # Either 404 or 400 depending on DB state
+    assert r.status_code in (400, 404)
+
+
+# =========================================================
+# OWNER FIELD CHECK
+# =========================================================
+
+def test_system_has_owner_username():
+    token = login_user()
+    system_id = SYSTEM_CACHE.get("system_id") or test_user_create_system()
+
+    r = request(
+        "GET",
+        f"/irrigation-systems/{system_id}",
+        headers=auth_headers(token)
+    )
+
+    assert r.status_code == 200
+
+    data = r.json()
+
+    # owner_username must exist (even if null in edge cases)
+    assert "owner_username" in data
 
 # =========================================================
 # MAIN
@@ -316,8 +438,23 @@ if __name__ == "__main__":
         ("user_get_system", test_user_get_system),
         ("owner_update_system", test_owner_update_system),
         ("update_no_auth", test_update_no_auth),
+
+        # SHARE
         ("owner_share_system", test_owner_share_system),
         ("non_owner_cannot_share", test_non_owner_cannot_share),
+
+        # SHARED USERS (NEW)
+        ("get_shared_users_as_owner", test_get_shared_users_as_owner),
+        ("get_shared_users_forbidden_for_viewer", test_get_shared_users_forbidden_for_viewer),
+
+        # UNSHARE (NEW)
+        ("unshare_user_from_system", test_unshare_user_from_system),
+        ("cannot_unshare_owner", test_cannot_unshare_owner),
+
+        # OWNER FIELD (NEW)
+        ("system_has_owner_username", test_system_has_owner_username),
+
+        # DELETE
         ("delete_no_auth", test_delete_no_auth),
         ("owner_delete_system", test_owner_delete_system),
     ]

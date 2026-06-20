@@ -110,6 +110,20 @@ def login_user():
     assert r.status_code == 200
     return r.json()["access_token"]
 
+def test_me_no_auth():
+    r = request("GET", "/users/me")
+    assert r.status_code == 401
+
+def test_user_can_me():
+    token = login_user()
+
+    r = request(
+        "GET",
+        "/users/me",
+        headers=auth_headers(token)
+    )
+
+    assert r.status_code == 200
 
 def auth_headers(token):
     return {"Authorization": f"Bearer {token}"}
@@ -291,6 +305,9 @@ if __name__ == "__main__":
 
         ("login_admin", test_login_admin),
         ("login_user", test_login_user),
+        
+        ("me_no_auth", test_me_no_auth),
+        ("user_can_me", test_user_can_me),
 
         ("user_can_list_users", test_user_can_list_users),
         ("user_can_list_user", test_user_can_list_user),

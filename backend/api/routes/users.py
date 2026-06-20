@@ -9,7 +9,7 @@ from api.deps import get_db, get_current_admin, get_current_user
 router = APIRouter(prefix="/users", tags=["Users"])
 
 # Get current user
-@router.get("/me", response_model=UserResponse)
+@router.get("/me", response_model=UserDetailedResponse)
 def get_me(
     current_user: User = Depends(get_current_user)
 ):
