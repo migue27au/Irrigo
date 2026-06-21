@@ -272,6 +272,7 @@ La API Key puede regenerarse desde la interfaz web.
 - [ ] Motor de reglas automáticas
 - [ ] Ejecución programada de acciones
 - [ ] Exportación de históricos
+- [ ] system_last_seen_at en los IrrigationSystem.
 
 ## Frontend
 

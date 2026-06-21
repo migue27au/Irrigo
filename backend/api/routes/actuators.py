@@ -1,0 +1,288 @@
+from datetime import datetime, timedelta
+
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+
+from api.deps import (
+    get_db,
+    get_system_by_api_key,
+    get_current_user,
+    get_system_with_access,
+)
+
+from models.system_actuator import SystemActuator
+from models.actuator_command import ActuatorCommand
+from models.actuator_event import ActuatorEvent
+
+from schemas.actuator import (
+    ActuatorGetResponse,
+    ActuatorCommandOut,
+    ActuatorCommandCreate,
+    ActuatorCommandUpdate,
+    ActuatorExecutedIn,
+)
+
+router = APIRouter(prefix="/actuators", tags=["Actuators"])
+
+MANUAL_COMMAND_TIMEOUT_MINUTES = 120
+
+
+# =====================================================
+# ACTUATORS CONFIG (USER WEB)
+# =====================================================
+
+@router.post("/")
+def create_actuator(
+    payload: dict,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    system, role = get_system_with_access(
+        db=db,
+        system_id=payload["system_id"],
+        user_id=user.id,
+        require_role="maintainer",
+    )
+
+    actuator = SystemActuator(
+        system_id=system.id,
+        name=payload["name"],
+        channel=payload.get("channel", 0),
+        description=payload.get("description"),
+        is_on=False,
+        intensity=None,
+    )
+
+    db.add(actuator)
+    db.commit()
+    db.refresh(actuator)
+
+    return actuator
+
+
+@router.put("/{actuator_id}")
+def update_actuator(
+    actuator_id: int,
+    payload: dict,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    actuator = db.query(SystemActuator).filter(
+        SystemActuator.id == actuator_id
+    ).first()
+
+    if not actuator:
+        raise HTTPException(404, "Actuator not found")
+
+    get_system_with_access(
+        db=db,
+        system_id=actuator.system_id,
+        user_id=user.id,
+        require_role="maintainer",
+    )
+
+    for k, v in payload.items():
+        setattr(actuator, k, v)
+
+    db.commit()
+    db.refresh(actuator)
+
+    return actuator
+
+
+@router.delete("/{actuator_id}")
+def delete_actuator(
+    actuator_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    actuator = db.query(SystemActuator).filter(
+        SystemActuator.id == actuator_id
+    ).first()
+
+    if not actuator:
+        raise HTTPException(404, "Actuator not found")
+
+    get_system_with_access(
+        db=db,
+        system_id=actuator.system_id,
+        user_id=user.id,
+        require_role="maintainer",
+    )
+
+    db.delete(actuator)
+    db.commit()
+
+    return {"status": "deleted"}
+
+
+# =====================================================
+# ESP32 - GET COMMANDS
+# =====================================================
+
+@router.get("/get", response_model=ActuatorGetResponse)
+def get_actuators(
+    db: Session = Depends(get_db),
+    system=Depends(get_system_by_api_key),
+):
+    now = datetime.utcnow()
+
+    expired = (
+        db.query(ActuatorCommand)
+        .filter(
+            ActuatorCommand.system_id == system.id,
+            ActuatorCommand.trigger_type == "manual",
+            ActuatorCommand.executed_count == 0,
+            ActuatorCommand.enabled == True,
+            ActuatorCommand.created_at < now - timedelta(minutes=MANUAL_COMMAND_TIMEOUT_MINUTES),
+        )
+        .all()
+    )
+
+    for cmd in expired:
+        cmd.enabled = False
+        cmd.disabled_reason = "timeout"
+
+    commands = (
+        db.query(ActuatorCommand)
+        .filter(
+            ActuatorCommand.system_id == system.id,
+            ActuatorCommand.enabled == True,
+            (
+                (ActuatorCommand.trigger_type == "automatic")
+                |
+                (
+                    (ActuatorCommand.trigger_type == "manual")
+                    & (ActuatorCommand.executed_count == 0)
+                )
+            )
+        )
+        .all()
+    )
+
+    db.commit()
+
+    return ActuatorGetResponse(
+        commands=[ActuatorCommandOut.from_orm(c) for c in commands]
+    )
+
+
+# =====================================================
+# COMMANDS (WEB USER)
+# =====================================================
+
+@router.post("/commands", response_model=ActuatorCommandOut)
+def create_command(
+    payload: ActuatorCommandCreate,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    system, role = get_system_with_access(
+        db=db,
+        system_id=payload.system_id,
+        user_id=user.id,
+        require_role="maintainer",
+    )
+
+    actuator = db.query(SystemActuator).filter(
+        SystemActuator.id == payload.actuator_id,
+        SystemActuator.system_id == system.id,
+    ).first()
+
+    if not actuator:
+        raise HTTPException(404, "Actuator not found")
+
+    cmd = ActuatorCommand(
+        system_id=system.id,
+        actuator_id=actuator.id,
+        name=payload.name,
+        trigger_type=payload.trigger_type,
+        intensity=payload.intensity,
+        duration_seconds=payload.duration_seconds,
+        executed_count=0,
+        enabled=True,
+    )
+
+    db.add(cmd)
+    db.commit()
+    db.refresh(cmd)
+
+    return cmd
+
+
+@router.put("/commands/{command_id}", response_model=ActuatorCommandOut)
+def update_command(command_id: int, payload: ActuatorCommandUpdate, db: Session = Depends(get_db), user=Depends(get_current_user)):
+    cmd = db.query(ActuatorCommand).filter(ActuatorCommand.id == command_id).first()
+
+    if not cmd:
+        raise HTTPException(404, "Command not found")
+
+    get_system_with_access(
+        db=db,
+        system_id=cmd.system_id,
+        user_id=user.id,
+        require_role="maintainer",
+    )
+
+    for k, v in payload.dict(exclude_unset=True).items():
+        setattr(cmd, k, v)
+
+    db.commit()
+    db.refresh(cmd)
+
+    return cmd
+
+
+@router.delete("/commands/{command_id}")
+def delete_command(command_id: int, db: Session = Depends(get_db), user=Depends(get_current_user)):
+    cmd = db.query(ActuatorCommand).filter(ActuatorCommand.id == command_id).first()
+
+    if not cmd:
+        raise HTTPException(404, "Command not found")
+
+    get_system_with_access(
+        db=db,
+        system_id=cmd.system_id,
+        user_id=user.id,
+        require_role="maintainer",
+    )
+
+    db.delete(cmd)
+    db.commit()
+
+    return {"status": "deleted"}
+
+
+# =====================================================
+# ESP32 CONFIRMATION
+# =====================================================
+
+@router.post("/executed")
+def actuator_executed(payload: ActuatorExecutedIn, db: Session = Depends(get_db), system=Depends(get_system_by_api_key)):
+
+    cmd = db.query(ActuatorCommand).filter(
+        ActuatorCommand.id == payload.command_id,
+        ActuatorCommand.system_id == system.id,
+        ActuatorCommand.enabled == True,
+    ).first()
+
+    if not cmd:
+        raise HTTPException(404, "Command not found")
+
+    cmd.executed_count += 1
+    cmd.last_executed_at = datetime.utcnow()
+
+    db.add(
+        ActuatorEvent(
+            actuator_id=payload.actuator_id,
+            command_id=payload.command_id,
+            intensity=payload.intensity,
+            duration_seconds=payload.duration_seconds,
+            trigger_type=payload.trigger_type,
+            recorded_at=datetime.utcnow(),
+        )
+    )
+
+    db.commit()
+
+    return {"status": "ok"}

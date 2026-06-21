@@ -1,85 +1,5 @@
-import requests
-import json
-import traceback
+from test_runner import print_response, print_request, pretty, request, ok, fail, run_test
 import time
-
-BASE_URL = "http://localhost:8000"
-
-# =========================================================
-# ANSI COLORS
-# =========================================================
-
-GREEN = "\033[92m"
-RED = "\033[91m"
-YELLOW = "\033[93m"
-BLUE = "\033[94m"
-CYAN = "\033[96m"
-RESET = "\033[0m"
-BOLD = "\033[1m"
-
-
-# =========================================================
-# HELPERS
-# =========================================================
-
-def pretty(obj):
-    try:
-        return json.dumps(obj, indent=2, ensure_ascii=False)
-    except Exception:
-        return str(obj)
-
-
-def print_request(method, url, headers=None, body=None):
-    print(f"{CYAN}{BOLD}\n--- REQUEST ---{RESET}")
-    print(f"{BLUE}{method} {url}{RESET}")
-
-    if headers:
-        print(f"{YELLOW}\nHEADERS:{RESET}")
-        print(pretty(headers))
-
-    if body is not None:
-        print(f"{YELLOW}\nBODY:{RESET}")
-        print(pretty(body))
-
-
-def print_response(resp):
-    print(f"{CYAN}{BOLD}\n--- RESPONSE ---{RESET}")
-    print(f"{BLUE}STATUS: {resp.status_code}{RESET}")
-
-    try:
-        print(f"{YELLOW}\nBODY:{RESET}")
-        print(pretty(resp.json()))
-    except Exception:
-        print(resp.text)
-
-
-def ok(msg):
-    print(f"{GREEN}OK: {msg}{RESET}")
-
-
-def fail(msg):
-    print(f"{RED}FAIL: {msg}{RESET}")
-
-
-# =========================================================
-# HTTP WRAPPER
-# =========================================================
-
-def request(method, path, headers=None, json_body=None):
-    url = f"{BASE_URL}{path}"
-
-    print_request(method, url, headers, json_body)
-
-    resp = requests.request(
-        method,
-        url,
-        headers=headers,
-        json=json_body
-    )
-
-    print_response(resp)
-    return resp
-
 
 # =========================================================
 # AUTH HELPERS
@@ -107,25 +27,6 @@ def login_user():
 
 def auth_headers(token):
     return {"Authorization": f"Bearer {token}"}
-
-
-# =========================================================
-# RUNNER
-# =========================================================
-
-def run_test(name, fn):
-    print(f"\n{BOLD}{CYAN}{'=' * 80}{RESET}")
-    print(f"{BOLD}TEST: {name}{RESET}")
-    print(f"{BOLD}{CYAN}{'=' * 80}{RESET}")
-
-    try:
-        fn()
-        ok(name)
-    except Exception as e:
-        fail(name)
-        print(f"{RED}\nERROR:{RESET}")
-        print(str(e))
-        traceback.print_exc()
 
 
 # =========================================================
@@ -566,10 +467,10 @@ if __name__ == "__main__":
     failed = 0
 
     for name, fn in tests:
-        run_test(name, fn)
         time.sleep(0.2)
-
         try:
+            run_test(name, fn)
+
             passed += 1
         except:
             failed += 1

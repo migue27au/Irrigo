@@ -9,6 +9,7 @@ from models.irrigation_system import IrrigationSystem
 from models.system_user import SystemUser
 from models.user import User
 from models.system_sensor import Sensor
+from models.system_actuator import SystemActuator
 
 from schemas.irrigation_system import (
     IrrigationSystemCreate,
@@ -22,6 +23,8 @@ from schemas.system_user import (
 )
 
 from schemas.sensor import SensorOut
+from schemas.actuator import ActuatorOut
+
 
 router = APIRouter(prefix="/irrigation-systems", tags=["Irrigation Systems"])
 
@@ -386,3 +389,27 @@ def get_system_sensors(
         )
         .all()
     )
+
+# -----------------------------------------------------
+# GET SYSTEM ACTUATORS
+# -----------------------------------------------------
+@router.get("/{system_id}/actuators", response_model=list[ActuatorOut])
+def get_system_actuators(
+    system_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    system, role = get_system_with_access(
+        db=db,
+        system_id=system_id,
+        user_id=user.id,
+        require_role="viewer",  # o "user" si quieres más permisivo
+    )
+
+    actuators = (
+        db.query(SystemActuator)
+        .filter(SystemActuator.system_id == system.id)
+        .all()
+    )
+
+    return actuators

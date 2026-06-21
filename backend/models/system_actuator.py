@@ -23,12 +23,12 @@ class SystemActuator(Base):
     name = Column(String(100), nullable=False)
     description = Column(String(255), nullable=True)
 
-    # Estado actual (AQUÍ está la unión)
+    # Estado actual
     is_on = Column(Boolean, default=False, nullable=False)
 
     intensity = Column(Numeric(5, 2), nullable=True)  # PWM 0-255
 
-    # Auditoría mínima (opcional pero útil)
+    # Auditoría mínima
     last_changed_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     last_changed_by = Column(BigInteger, ForeignKey("users.id"), nullable=True)

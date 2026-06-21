@@ -9,9 +9,10 @@ from models.user import User
 from models.irrigation_system import IrrigationSystem
 from models.system_user import SystemUser
 from models.system_sensor import Sensor
+from models.system_actuator import SystemActuator
+from models.rule_group import RuleGroup
 
 security = HTTPBearer()
-
 
 def get_db():
     db = SessionLocal()
@@ -184,3 +185,85 @@ def get_sensor_with_access(
             )
 
     return sensor, user_role
+
+
+def get_actuator_with_access(
+    db: Session,
+    actuator_id: int,
+    user_id: int,
+    require_role: str | None = None,
+):
+    actuator = (
+        db.query(SystemActuator)
+        .filter(SystemActuator.id == actuator_id)
+        .first()
+    )
+
+    if not actuator:
+        raise HTTPException(
+            status_code=404,
+            detail="Actuator not found"
+        )
+
+    relation = db.query(SystemUser).filter_by(
+        system_id=actuator.system_id,
+        user_id=user_id
+    ).first()
+
+    if not relation:
+        raise HTTPException(
+            status_code=403,
+            detail="No access to actuator"
+        )
+
+    role = relation.role
+
+    if require_role:
+        if not _has_required_role(role, require_role):
+            raise HTTPException(
+                status_code=403,
+                detail=f"Requires {require_role} role"
+            )
+
+    return actuator, role
+
+
+def get_rule_group_with_access(
+    db: Session,
+    group_id: int,
+    user_id: int,
+    require_role: str | None = None,
+):
+    group = (
+        db.query(RuleGroup)
+        .filter(RuleGroup.id == group_id)
+        .first()
+    )
+
+    if not group:
+        raise HTTPException(
+            status_code=404,
+            detail="Rule group not found"
+        )
+
+    relation = db.query(SystemUser).filter_by(
+        system_id=group.system_id,
+        user_id=user_id
+    ).first()
+
+    if not relation:
+        raise HTTPException(
+            status_code=403,
+            detail="No access to rule group"
+        )
+
+    role = relation.role
+
+    if require_role:
+        if not _has_required_role(role, require_role):
+            raise HTTPException(
+                status_code=403,
+                detail=f"Requires {require_role} role"
+            )
+
+    return group, role

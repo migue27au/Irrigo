@@ -17,8 +17,6 @@ class SensorUpdate(BaseModel):
 class SensorBatchCreate(BaseModel):
     sensors: list[SensorCreate]
 
-
-
 class SensorOut(BaseModel):
     id: int
     system_id: int
