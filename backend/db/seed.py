@@ -285,7 +285,7 @@ def create_rule_group_with_conditions(db, system, command, idx, sensors_by_key):
         ])
 
     # -------------------------
-    # 3: TIME RULE (CRON)
+    # 3: TIME RULE (CHANGED HERE)
     # -------------------------
     elif idx == 3:
         db.add(
@@ -295,7 +295,7 @@ def create_rule_group_with_conditions(db, system, command, idx, sensors_by_key):
                 sensor_id=None,
                 operator="==",
                 value=None,
-                cron="0 */6 * * *"
+                cron="18:00"   # 👈 CHANGED: was cron expression, now HH:MM string
             )
         )
 

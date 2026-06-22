@@ -1,5 +1,6 @@
 from sqlalchemy import Column, BigInteger, String, ForeignKey, Boolean, DateTime
 from sqlalchemy.sql import func
+from sqlalchemy.orm import relationship
 
 from db.base import Base
 
@@ -24,4 +25,10 @@ class RuleGroup(Base):
         DateTime(timezone=True),
         server_default=func.now(),
         nullable=False
+    )
+
+    conditions = relationship(
+        "RuleCondition",
+        back_populates="group",
+        cascade="all, delete-orphan"
     )

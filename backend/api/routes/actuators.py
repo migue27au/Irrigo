@@ -46,18 +46,14 @@ def create_actuator(
 
     channel = payload.get("channel", 0)
 
-    # -----------------------------
     # VALIDATION: channel range
-    # -----------------------------
     if channel < 0 or channel >= 4:
         raise HTTPException(
             status_code=400,
             detail="Channel must be between 0 and 3",
         )
 
-    # -----------------------------
     # VALIDATION: unique channel per system
-    # -----------------------------
     existing = (
         db.query(SystemActuator)
         .filter(

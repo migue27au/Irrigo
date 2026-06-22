@@ -47,6 +47,7 @@ class ActuatorExecutedIn(BaseModel):
 # CREATE / UPDATE COMMAND (BACKEND USER)
 # =====================================================
 class ActuatorCommandCreate(BaseModel):
+    system_id: int
     actuator_id: int
     name: Optional[str] = None
 

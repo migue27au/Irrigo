@@ -23,11 +23,11 @@ export default function SystemsPage() {
 
   const [sensors, setSensors] = useState([]);
   const [editingSensors, setEditingSensors] = useState({});
+  
   const [actuators, setActuators] = useState([]);
   const [newActuator, setNewActuator] = useState({
     name: "",
     channel: 0,
-    description: "",
   });
   const [editingActuators, setEditingActuators] = useState({});
 
@@ -125,7 +125,6 @@ export default function SystemsPage() {
         system_id: selected.id,
         name: newActuator.name,
         channel: newActuator.channel,
-        description: newActuator.description,
       });
 
       setActuators((prev) => [res.data, ...prev]);
@@ -133,7 +132,6 @@ export default function SystemsPage() {
       setNewActuator({
         name: "",
         channel: 0,
-        description: "",
       });
 
       success("Actuator created");

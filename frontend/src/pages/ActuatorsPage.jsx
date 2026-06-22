@@ -2,522 +2,862 @@ import { useEffect, useState } from "react";
 import api from "../api/api";
 import { useToast } from "../context/ToastContext";
 
-export default function SystemsPage() {
+export default function ActuatorPage() {
+  const { error, success } = useToast();
+
   const [systems, setSystems] = useState([]);
-  const [selected, setSelected] = useState(null);
+  const [selectedSystem, setSelectedSystem] = useState(null);
 
-  const { error, success, warning } = useToast();
+  const [actuators, setActuators] = useState([]);
+  const [selectedActuator, setSelectedActuator] = useState(null);
 
-  const [apiKey, setApiKey] = useState("");
-  const [loadingApiKey, setLoadingApiKey] = useState(false);
+  const [commands, setCommands] = useState([]);
+  const [selectedCommand, setSelectedCommand] = useState(null);
 
-  const [editAlias, setEditAlias] = useState("");
-  const [editDescription, setEditDescription] = useState("");
-
-  const [shareUsername, setShareUsername] = useState("");
-  const [shareRole, setShareRole] = useState("viewer");
-  const [sharing, setSharing] = useState(false);
-
-  const [sharedUsers, setSharedUsers] = useState([]);
-  const [loadingSharedUsers, setLoadingSharedUsers] = useState(false);
+  const [groups, setGroups] = useState([]);
+  const [showRules, setShowRules] = useState(false);
 
   const [sensors, setSensors] = useState([]);
-  const [editingSensors, setEditingSensors] = useState({});
 
-  // -----------------------------
-  // SYSTEM LIST
-  // -----------------------------
+  const [editingGroupId, setEditingGroupId] = useState(null);
+  const [editGroupForm, setEditGroupForm] = useState({
+    name: "",
+    description: "",
+  });
+
+  const [groupForm, setGroupForm] = useState({
+    name: "",
+    description: "",
+  });
+
+  const [conditionForms, setConditionForms] = useState({});
+
+  const [form, setForm] = useState({
+    intensity: "",
+    duration_seconds: "",
+    name: "",
+  });
+
+  // =========================
+  // RESET RULES STATE
+  // =========================
+  const resetRules = () => {
+    setSelectedCommand(null);
+    setGroups([]);
+    setShowRules(false);
+    setConditionForms({});
+    setEditingGroupId(null);
+  };
+
+  // =========================
+  // SYSTEMS
+  // =========================
   const fetchSystems = async () => {
     try {
       const res = await api.get("/irrigation-systems/");
       setSystems(res.data);
-    } catch (err) {
-      error(err?.response?.data?.detail || "Error loading systems");
+    } catch {
+      error("Failed to load systems");
     }
   };
 
-  useEffect(() => {
-    fetchSystems();
-  }, []);
-
-  // -----------------------------
-  // LOAD FULL SYSTEM (IMPORTANT FIX)
-  // -----------------------------
-  const loadSystem = async (systemId) => {
+  // =========================
+  // ACTUATORS
+  // =========================
+  const fetchActuators = async (systemId) => {
     try {
-      const res = await api.get(`/irrigation-systems/${systemId}`);
-      setSelected(res.data);
-    } catch (err) {
-      error(err?.response?.data?.detail || "Failed to load system");
+      const res = await api.get(
+        `/irrigation-systems/${systemId}/actuators`
+      );
+      setActuators(res.data);
+
+      setSelectedActuator(null);
+      resetRules();
+    } catch {
+      error("Failed to load actuators");
     }
   };
 
-  useEffect(() => {
-    if (!selected) return;
-
-    setEditAlias(selected.alias || "");
-    setEditDescription(selected.description || "");
-
-    loadApiKey(selected.id, selected.role);
-    loadSharedUsers(selected.id, selected.role);
-    loadSensors(selected.id);
-
-  }, [selected]);
-
-  // -----------------------------
+  // =========================
   // SENSORS
-  // -----------------------------
-  const loadSensors = async (systemId) => {
+  // =========================
+  const getSensorName = (sensorId) => {
+    const sensor = sensors.find(
+      (s) => String(s.id) === String(sensorId)
+    );
+    return sensor ? sensor.name : sensorId;
+  };
+
+  const fetchSensors = async (systemId) => {
     try {
-      const res = await api.get(`/irrigation-systems/${systemId}/sensors`);
+      const res = await api.get(
+        `/irrigation-systems/${systemId}/sensors`
+      );
       setSensors(res.data);
-    } catch (err) {
-      setSensors([]);
+    } catch {
       error("Failed to load sensors");
     }
   };
 
-  const updateSensorName = async (sensor) => {
+  // =========================
+  // COMMANDS
+  // =========================
+  const fetchCommands = async (actuatorId) => {
     try {
-      await api.put(`/sensors/${sensor.id}`, {
-        name: editingSensors[sensor.id],
+      const res = await api.get(
+        `/actuators/${actuatorId}/commands`
+      );
+      setCommands(res.data);
+      resetRules();
+    } catch {
+      error("Failed to load commands");
+    }
+  };
+
+  const createCommand = async (triggerType) => {
+    try {
+      const res = await api.post("/actuators/commands", {
+        system_id: selectedSystem.id,
+        actuator_id: selectedActuator,
+        name: form.name || null,
+        trigger_type: triggerType,
+        intensity: form.intensity
+          ? Number(form.intensity)
+          : null,
+        duration_seconds: form.duration_seconds
+          ? Number(form.duration_seconds)
+          : null,
       });
 
-      success("Sensor updated");
+      setCommands((prev) => [res.data, ...prev]);
+      setForm({
+        intensity: "",
+        duration_seconds: "",
+        name: "",
+      });
 
-      setSensors((prev) =>
-        prev.map((s) =>
-          s.id === sensor.id
-            ? { ...s, name: editingSensors[sensor.id] }
-            : s
-        )
-      );
-    } catch (err) {
-      error("Failed to update sensor");
-    }
-  };
-
-  // -----------------------------
-  // API KEY
-  // -----------------------------
-  const loadApiKey = async (systemId, role) => {
-    if (role !== "owner"){
-      setApiKey("");
-      return;
-    }
-    try {
-      setLoadingApiKey(true);
-
-      const res = await api.get(
-        `/irrigation-systems/${systemId}/apikey`
-      );
-
-      setApiKey(res.data.api_key);
-    } catch (err) {
-      setApiKey("");
-
-      error("Failed to load API key");
-    } finally {
-      setLoadingApiKey(false);
-    }
-  };
-
-  const regenerateApiKey = async () => {
-    try {
-      await api.post(
-        `/irrigation-systems/${selected.id}/apikey/regenerate`
-      );
-
-      success("API key regenerated");
-      await loadApiKey(selected.id);
+      success("Command created");
     } catch (err) {
       error(
         err?.response?.data?.detail ||
-          "Failed to regenerate API key"
+          "Failed to create command"
       );
     }
   };
 
-  const copyApiKey = async () => {
+  const deleteCommand = async (id) => {
     try {
-      await navigator.clipboard.writeText(apiKey);
-      success("API key copied");
+      await api.delete(`/actuators/commands/${id}`);
+      setCommands((prev) =>
+        prev.filter((c) => c.id !== id)
+      );
+      resetRules();
+      success("Command deleted");
     } catch {
-      error("Failed to copy API key");
+      error("Failed to delete command");
     }
   };
 
-  // -----------------------------
-  // SHARED USERS
-  // -----------------------------
-  const loadSharedUsers = async (systemId, role) => {
-    if (!["owner", "maintainer"].includes(role)){
-      setSharedUsers([]);
-      return;
-    }
-    try {
-      setLoadingSharedUsers(true);
+  const toggleCommandEnabled = async (cmd) => {
+    const updated = {
+      ...cmd,
+      enabled: !cmd.enabled,
+    };
 
-      const res = await api.get(
-        `/irrigation-systems/${systemId}/shared-users`
-      );
+    setCommands((prev) =>
+      prev.map((c) =>
+        c.id === cmd.id ? updated : c
+      )
+    );
 
-      setSharedUsers(res.data);
-    } catch (err) {
-      setSharedUsers([]);
-      error("Failed to load shared users");
-    } finally {
-      setLoadingSharedUsers(false);
-    }
-  };
-
-  const unshareUser = async (userId) => {
-    try {
-      await api.delete(
-        `/irrigation-systems/${selected.id}/share/${userId}`
-      );
-
-      success("User removed from system");
-
-      setSharedUsers((prev) =>
-        prev.filter((u) => u.user_id !== userId)
-      );
-    } catch (err) {
-      error(err?.response?.data?.detail || "Failed to remove user");
-    }
-  };
-
-  const shareSystem = async () => {
-    if (!selected) return;
-
-    try {
-      setSharing(true);
-
-      await api.post(
-        `/irrigation-systems/${selected.id}/share`,
-        {
-          username: shareUsername,
-          role: shareRole,
-        }
-      );
-
-      success("System shared successfully");
-
-      setShareUsername("");
-      setShareRole("viewer");
-
-      await loadSharedUsers(selected.id);
-    } catch (err) {
-      error(err?.response?.data?.detail || "Failed to share system");
-    } finally {
-      setSharing(false);
-    }
-  };
-
-  // -----------------------------
-  // SYSTEM CRUD
-  // -----------------------------
-  const createSystem = async () => {
-    try {
-      const res = await api.post("/irrigation-systems/", {
-        alias: "New System",
-        description: "Created from UI",
-      });
-
-      success("System created");
-      setSystems((prev) => [...prev, res.data]);
-    } catch (err) {
-      error(err?.response?.data?.detail || "Create failed");
-    }
-  };
-
-  const deleteSystem = async (id) => {
-    try {
-      await api.delete(`/irrigation-systems/${id}`);
-
-      warning("System deleted");
-
-      setSystems((prev) => prev.filter((s) => s.id !== id));
-
-      if (selected?.id === id) {
-        setSelected(null);
-        setSharedUsers([]);
-      }
-    } catch (err) {
-      error(err?.response?.data?.detail || "Delete failed");
-    }
-  };
-
-  const saveSystem = async () => {
     try {
       const res = await api.put(
-        `/irrigation-systems/${selected.id}`,
+        `/actuators/commands/${cmd.id}`,
         {
-          alias: editAlias,
-          description: editDescription,
+          enabled: updated.enabled,
         }
       );
 
-      setSystems((prev) =>
-        prev.map((s) =>
-          s.id === selected.id ? res.data : s
+      setCommands((prev) =>
+        prev.map((c) =>
+          c.id === cmd.id ? res.data : c
         )
       );
 
-      setSelected(res.data);
-
-      success("System updated");
-    } catch (err) {
-      error(err?.response?.data?.detail || "Update failed");
+      success("State updated");
+    } catch {
+      setCommands((prev) =>
+        prev.map((c) =>
+          c.id === cmd.id ? cmd : c
+        )
+      );
+      error("Failed to update command");
     }
   };
 
-  // -----------------------------
+  // =========================
+  // RULES
+  // =========================
+  const loadRules = async (commandId) => {
+    try {
+      setSelectedCommand(commandId);
+      setEditingGroupId(null);
+      setConditionForms({});
+
+      await fetchSensors(selectedSystem.id);
+
+      const res = await api.get(
+        `/rules/${commandId}/rulegroups`
+      );
+
+      setGroups(res.data);
+      setShowRules(true);
+    } catch {
+      error("Failed to load rules");
+    }
+  };
+
+  const createGroup = async () => {
+    try {
+      await api.post(
+        `/rules/${selectedCommand}/rulegroups`,
+        {
+          name: groupForm.name?.trim(),
+          description:
+            groupForm.description?.trim() || null,
+        }
+      );
+
+      setGroupForm({ name: "", description: "" });
+
+      await loadRules(selectedCommand);
+      success("Group created");
+    } catch {
+      error("Failed to create group");
+    }
+  };
+
+  const updateGroup = async (groupId) => {
+    try {
+      const res = await api.put(
+        `/rules/rulegroups/${groupId}`,
+        {
+          name: editGroupForm.name?.trim(),
+          description:
+            editGroupForm.description?.trim() || null,
+        }
+      );
+
+      setGroups((prev) =>
+        prev.map((g) =>
+          g.id === groupId
+            ? { ...g, ...res.data, id: groupId }
+            : g
+        )
+      );
+
+      setEditingGroupId(null);
+      success("Group updated");
+    } catch {
+      error("Failed to update group");
+    }
+  };
+
+  const deleteGroup = async (groupId) => {
+    try {
+      await api.delete(
+        `/rules/rulegroups/${groupId}`
+      );
+
+      setGroups((prev) =>
+        prev.filter((g) => g.id !== groupId)
+      );
+
+      success("Group deleted");
+    } catch {
+      error("Failed to delete group");
+    }
+  };
+
+  const addCondition = async (groupId) => {
+    const form = conditionForms[groupId];
+
+    if (!form?.type) {
+      error("Incomplete condition");
+      return;
+    }
+
+    const payload = {
+      type: form.type,
+      sensor_id:
+        form.type === "sensor" && form.sensor_id
+          ? Number(form.sensor_id)
+          : null,
+      operator: form.operator || null,
+      value:
+        form.type === "sensor"
+          ? Number(form.value)
+          : null,
+      cron:
+        form.type === "time" ? form.value : null,
+    };
+
+    try {
+      await api.post(
+        `/rules/${selectedCommand}/rulegroups/${groupId}/conditions`,
+        payload
+      );
+
+      setConditionForms((p) => ({
+        ...p,
+        [groupId]: {},
+      }));
+
+      await loadRules(selectedCommand);
+      success("Condition added");
+    } catch {
+      error("Failed to add condition");
+    }
+  };
+
+  const deleteCondition = async (
+    groupId,
+    conditionId
+  ) => {
+    try {
+      await api.delete(
+        `/rules/conditions/${conditionId}`
+      );
+
+      setGroups((prev) =>
+        prev.map((g) =>
+          g.id === groupId
+            ? {
+                ...g,
+                conditions: g.conditions.filter(
+                  (c) => c.id !== conditionId
+                ),
+              }
+            : g
+        )
+      );
+
+      success("Condition deleted");
+    } catch {
+      error("Failed to delete condition");
+    }
+  };
+
+  const updateConditionForm = (
+    groupId,
+    key,
+    value
+  ) => {
+    setConditionForms((prev) => ({
+      ...prev,
+      [groupId]: {
+        ...prev[groupId],
+        [key]: value,
+      },
+    }));
+  };
+
+  // =========================
+  // EFFECTS
+  // =========================
+  useEffect(() => {
+    fetchSystems();
+  }, []);
+
+  useEffect(() => {
+    if (selectedSystem)
+      fetchActuators(selectedSystem.id);
+  }, [selectedSystem]);
+
+  useEffect(() => {
+    if (selectedActuator)
+      fetchCommands(selectedActuator);
+  }, [selectedActuator]);
+
+  // =========================
   // UI
-  // -----------------------------
+  // =========================
   return (
     <div className="systems-layout">
 
-      {/* LEFT SIDEBAR */}
+      {/* SIDEBAR */}
       <div className="systems-sidebar">
-        <div className="d-flex justify-content-between mb-2">
-          <h5>Systems</h5>
-
-          <button
-            className="btn btn-sm btn-success"
-            onClick={createSystem}
-          >
-            +
-          </button>
-        </div>
+        <h5>Systems</h5>
 
         <div className="list-group">
           {systems.map((s) => (
             <button
               key={s.id}
-              className={`list-group-item list-group-item-action ${
-                selected?.id === s.id ? "active" : ""
+              className={`list-group-item ${
+                selectedSystem?.id === s.id
+                  ? "active"
+                  : ""
               }`}
-              onClick={() => loadSystem(s.id)}
+              onClick={() => setSelectedSystem(s)}
             >
               {s.alias}
             </button>
           ))}
         </div>
+
+        {selectedSystem && (
+          <>
+            <hr />
+            <h6>Actuators</h6>
+
+            <div className="list-group">
+              {actuators.map((a) => (
+                <button
+                  key={a.id}
+                  className={`list-group-item ${
+                    selectedActuator === a.id
+                      ? "active"
+                      : ""
+                  }`}
+                  onClick={() =>
+                    setSelectedActuator(a.id)
+                  }
+                >
+                  {a.name}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
       </div>
 
-      {/* CENTER CONTENT */}
+      {/* CONTENT */}
       <div className="systems-content">
-        {!selected ? (
-          <div>Select a system</div>
+        {!selectedActuator ? (
+          <div>Select actuator</div>
         ) : (
           <>
-            {/* EDIT */}
-            <div className="mb-3">
-              <label className="form-label">Alias</label>
-              <input
-                className="form-control"
-                value={editAlias}
-                onChange={(e) => setEditAlias(e.target.value)}
-              />
-            </div>
+            <h4>Commands</h4>
 
-            <div className="mb-3">
-              <label className="form-label">Owner</label>
+            {/* CREATE COMMAND */}
+            <div className="card p-3 mb-3">
               <input
-                className="form-control"
-                value={selected?.owner_username || "Unknown"}
-                readOnly
-              />
-            </div>
-
-            <div className="mb-3">
-              <label className="form-label">Role</label>
-              <input
-                className="form-control"
-                value={selected?.role || "Unknown"}
-                readOnly
-              />
-            </div>
-
-            <div className="mb-3">
-              <label className="form-label">Description</label>
-              <textarea
-                className="form-control"
-                rows="4"
-                value={editDescription}
+                className="form-control mb-2"
+                placeholder="Name"
+                value={form.name}
                 onChange={(e) =>
-                  setEditDescription(e.target.value)
+                  setForm((p) => ({
+                    ...p,
+                    name: e.target.value,
+                  }))
                 }
               />
-            </div>
 
-            {/* API KEY */}
-            <div className="mb-4">
-              <label className="form-label">API Key</label>
+              <input
+                className="form-control mb-2"
+                placeholder="Intensity"
+                type="number"
+                value={form.intensity}
+                onChange={(e) =>
+                  setForm((p) => ({
+                    ...p,
+                    intensity: e.target.value,
+                  }))
+                }
+              />
 
-              <div className="input-group">
-                <input
-                  className="form-control"
-                  readOnly
-                  value={
-                    loadingApiKey ? "Loading..." : apiKey
-                  }
-                />
+              <input
+                className="form-control mb-2"
+                placeholder="Duration"
+                type="number"
+                value={form.duration_seconds}
+                onChange={(e) =>
+                  setForm((p) => ({
+                    ...p,
+                    duration_seconds: e.target.value,
+                  }))
+                }
+              />
 
-                <button
-                  className="btn btn-outline-secondary"
-                  onClick={copyApiKey}
-                >
-                  Copy
-                </button>
-
-                <button
-                  className="btn btn-outline-warning"
-                  onClick={regenerateApiKey}
-                >
-                  Regenerate
-                </button>
-              </div>
-            </div>
-
-            {/* SHARE */}
-            <div className="mb-4">
-              <label className="form-label">Share system</label>
-
-              <div className="input-group">
-                <input
-                  className="form-control"
-                  placeholder="Username"
-                  value={shareUsername}
-                  onChange={(e) =>
-                    setShareUsername(e.target.value)
-                  }
-                />
-
-                <select
-                  className="form-select"
-                  value={shareRole}
-                  onChange={(e) =>
-                    setShareRole(e.target.value)
-                  }
-                  style={{ maxWidth: "140px" }}
-                >
-                  <option value="viewer">Viewer</option>
-                  <option value="maintainer">Maintainer</option>
-                </select>
-
+              <div className="d-flex gap-2">
                 <button
                   className="btn btn-primary"
-                  onClick={shareSystem}
-                  disabled={!shareUsername || sharing}
+                  onClick={() =>
+                    createCommand("manual")
+                  }
                 >
-                  {sharing ? "Sharing..." : "Share"}
+                  Manual
+                </button>
+
+                <button
+                  className="btn btn-warning"
+                  onClick={() =>
+                    createCommand("automatic")
+                  }
+                >
+                  Automatic
                 </button>
               </div>
             </div>
 
-            {/* SHARED USERS */}
-            <div className="mb-4">
-              <label className="form-label">Shared users</label>
-
-              {loadingSharedUsers ? (
-                <div>Loading...</div>
-              ) : (
-                <ul className="list-group">
-                  {sharedUsers.map((u) => (
-                    <li
-                      key={u.user_id}
-                      className="list-group-item d-flex justify-content-between align-items-center"
-                    >
-                      <div>
-                        <strong>{u.username}</strong>{" "}
-                        <span className="text-muted">
-                          ({u.role})
-                        </span>
-                      </div>
-
-                      {u.role !== "owner" && (
-                        <button
-                          className="btn btn-sm btn-danger"
-                          onClick={() =>
-                            unshareUser(u.user_id)
-                          }
-                        >
-                          Remove
-                        </button>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            {/* ACTIONS */}
-            <div className="d-flex gap-2">
-              <button
-                className="btn btn-success"
-                onClick={saveSystem}
-              >
-                Save
-              </button>
-
-              <button
-                className="btn btn-danger"
-                onClick={() =>
-                  deleteSystem(selected.id)
-                }
-              >
-                Delete
-              </button>
-            </div>
-
-            {/* SENSORS TABLE */}
-            <h5>Sensors</h5>
-
-            <table className="table table-dark table-striped">
+            {/* COMMAND TABLE */}
+            <table className="table table-striped">
               <thead>
                 <tr>
                   <th>ID</th>
-                  <th>Key</th>
                   <th>Name</th>
+                  <th>Type</th>
+                  <th>Enabled</th>
+                  <th>Rules</th>
                   <th>Action</th>
                 </tr>
               </thead>
 
               <tbody>
-                {sensors.map((s) => (
-                  <tr key={s.id}>
-                    <td>{s.id}</td>
-                    <td>{s.sensor_key}</td>
+                {commands.map((c) => (
+                  <tr key={c.id}>
+                    <td>{c.id}</td>
+                    <td>{c.name || "-"}</td>
+                    <td>{c.trigger_type}</td>
 
                     <td>
                       <input
-                        className="form-control"
-                        value={
-                          editingSensors[s.id] ?? s.name
-                        }
-                        onChange={(e) =>
-                          setEditingSensors((prev) => ({
-                            ...prev,
-                            [s.id]: e.target.value,
-                          }))
+                        type="checkbox"
+                        checked={c.enabled}
+                        onChange={() =>
+                          toggleCommandEnabled(c)
                         }
                       />
                     </td>
 
                     <td>
+                      {c.trigger_type ===
+                        "automatic" && (
+                        <button
+                          className="btn btn-sm btn-outline-info"
+                          onClick={() =>
+                            loadRules(c.id)
+                          }
+                        >
+                          Rules
+                        </button>
+                      )}
+                    </td>
+
+                    <td>
                       <button
-                        className="btn btn-sm btn-success"
-                        onClick={() => updateSensorName(s)}
+                        className="btn btn-sm btn-danger"
+                        onClick={() =>
+                          deleteCommand(c.id)
+                        }
                       >
-                        Save
+                        Delete
                       </button>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+
+            {/* RULES */}
+            {showRules && (
+              <div className="mt-4">
+                <h5>Rule Groups</h5>
+
+                {/* CREATE GROUP */}
+                <div className="card p-3 mb-3">
+                  <input
+                    className="form-control mb-2"
+                    placeholder="Group name"
+                    value={groupForm.name}
+                    onChange={(e) =>
+                      setGroupForm((p) => ({
+                        ...p,
+                        name: e.target.value,
+                      }))
+                    }
+                  />
+
+                  <input
+                    className="form-control mb-2"
+                    placeholder="Description"
+                    value={groupForm.description}
+                    onChange={(e) =>
+                      setGroupForm((p) => ({
+                        ...p,
+                        description:
+                          e.target.value,
+                      }))
+                    }
+                  />
+
+                  <button
+                    className="btn btn-success"
+                    onClick={createGroup}
+                  >
+                    Add group
+                  </button>
+                </div>
+
+                {/* GROUPS */}
+                {groups.map((g) => (
+                  <div
+                    key={g.id}
+                    className="card mb-3"
+                  >
+                    <div className="card-header d-flex justify-content-between">
+                      <div>
+                        <strong>{g.name}</strong>
+                        <div className="text-muted small">
+                          {g.description || "-"}
+                        </div>
+                      </div>
+
+                      <div className="d-flex gap-2">
+                        <button
+                          className="btn btn-sm btn-outline-secondary"
+                          onClick={() => {
+                            setEditingGroupId(g.id);
+                            setEditGroupForm({
+                              name: g.name,
+                              description:
+                                g.description ||
+                                "",
+                            });
+                          }}
+                        >
+                          Edit
+                        </button>
+
+                        <button
+                          className="btn btn-sm btn-outline-danger"
+                          onClick={() =>
+                            deleteGroup(g.id)
+                          }
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+
+                    {editingGroupId === g.id && (
+                      <div className="p-3 border-top">
+                        <input
+                          className="form-control mb-2"
+                          value={editGroupForm.name}
+                          onChange={(e) =>
+                            setEditGroupForm(
+                              (p) => ({
+                                ...p,
+                                name:
+                                  e.target.value,
+                              })
+                            )
+                          }
+                        />
+
+                        <input
+                          className="form-control mb-2"
+                          value={
+                            editGroupForm.description
+                          }
+                          onChange={(e) =>
+                            setEditGroupForm(
+                              (p) => ({
+                                ...p,
+                                description:
+                                  e.target.value,
+                              })
+                            )
+                          }
+                        />
+
+                        <button
+                          className="btn btn-success btn-sm"
+                          onClick={() =>
+                            updateGroup(g.id)
+                          }
+                        >
+                          Save
+                        </button>
+                      </div>
+                    )}
+
+                    <div className="card-body">
+                      <table className="table table-sm">
+                        <thead>
+                          <tr>
+                            <th>Type</th>
+                            <th>Sensor</th>
+                            <th>Operator</th>
+                            <th>Value</th>
+                            <th></th>
+                          </tr>
+                        </thead>
+
+                        <tbody>
+                          <tr>
+                            <td>
+                              <select
+                                className="form-control"
+                                value={
+                                  conditionForms[g.id]
+                                    ?.type || "sensor"
+                                }
+                                onChange={(e) =>
+                                  updateConditionForm(
+                                    g.id,
+                                    "type",
+                                    e.target
+                                      .value
+                                  )
+                                }
+                              >
+                                <option value="sensor">
+                                  sensor
+                                </option>
+                                <option value="time">
+                                  time
+                                </option>
+                              </select>
+                            </td>
+
+                            <td>
+                              <select
+                                className="form-control"
+                                disabled={
+                                  conditionForms[g.id]
+                                    ?.type === "time"
+                                }
+                                value={
+                                  conditionForms[g.id]
+                                    ?.sensor_id || ""
+                                }
+                                onChange={(e) =>
+                                  updateConditionForm(
+                                    g.id,
+                                    "sensor_id",
+                                    e.target
+                                      .value
+                                  )
+                                }
+                              >
+                                <option value="">
+                                  Select
+                                </option>
+                                {sensors.map((s) => (
+                                  <option
+                                    key={s.id}
+                                    value={s.id}
+                                  >
+                                    {s.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </td>
+
+                            <td>
+                              <select
+                                className="form-control"
+                                value={conditionForms[g.id]?.operator || ""}
+                                onChange={(e) =>
+                                  updateConditionForm(
+                                    g.id,
+                                    "operator",
+                                    e.target.value
+                                  )
+                                }
+                              >
+                                <option value="<">&lt;</option>
+                                <option value=">">&gt;</option>
+                                <option value="<=">&lt;=</option>
+                                <option value=">=">&gt;=</option>
+                                <option value="==">==</option>
+                                <option value="!=">!=</option>
+                              </select>
+                            </td>
+
+                            <td>
+                              {conditionForms[g.id]?.type === "time" ? (
+                                <input
+                                  className="form-control"
+                                  type="time"
+                                  step="60"
+                                  value={conditionForms[g.id]?.value || ""}
+                                  onChange={(e) =>
+                                    updateConditionForm(
+                                      g.id,
+                                      "value",
+                                      e.target.value
+                                    )
+                                  }
+                                />
+                              ) : (
+                                <input
+                                  className="form-control"
+                                  type="number"
+                                  value={conditionForms[g.id]?.value || ""}
+                                  onChange={(e) =>
+                                    updateConditionForm(
+                                      g.id,
+                                      "value",
+                                      e.target.value
+                                    )
+                                  }
+                                />
+                              )}
+                            </td>
+
+                            <td>
+                              <button
+                                className="btn btn-primary btn-sm"
+                                onClick={() =>
+                                  addCondition(g.id)
+                                }
+                              >
+                                Add
+                              </button>
+                            </td>
+                          </tr>
+
+                          {g.conditions.map((c) => (
+                            <tr key={c.id}>
+                              <td>{c.type}</td>
+                              <td>
+                                {getSensorName(
+                                  c.sensor_id
+                                )}
+                              </td>
+                              <td>
+                                {c.operator || "-"}
+                              </td>
+                              <td>
+                                {c.value ||
+                                  c.cron ||
+                                  "-"}
+                              </td>
+                              <td>
+                                <button
+                                  className="btn btn-sm btn-danger"
+                                  onClick={() =>
+                                    deleteCondition(
+                                      g.id,
+                                      c.id
+                                    )
+                                  }
+                                >
+                                  Delete
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </>
         )}
       </div>

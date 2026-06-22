@@ -1,6 +1,5 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Optional
-from datetime import datetime
 
 
 # =====================================================
@@ -27,6 +26,7 @@ class RuleConditionOut(BaseModel):
 class RuleGroupOut(BaseModel):
     id: int
     name: Optional[str] = None
+    description: Optional[str] = None
 
     conditions: List[RuleConditionOut]
 
@@ -61,14 +61,14 @@ class RuleConditionCreate(BaseModel):
 class RuleGroupCreate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
-    conditions: List[RuleConditionCreate]
-
+    conditions: Optional[List[RuleConditionCreate]] = Field(default_factory=list)
 
 # =====================================================
 # BACKEND UPDATE GROUP
 # =====================================================
 class RuleGroupUpdate(BaseModel):
     name: Optional[str] = None
+    description: Optional[str] = None
 
 
 # =====================================================
@@ -77,6 +77,7 @@ class RuleGroupUpdate(BaseModel):
 class RuleGroupDetailOut(BaseModel):
     id: int
     name: Optional[str] = None
+    description: Optional[str] = None
 
     conditions: List[RuleConditionOut]
 
