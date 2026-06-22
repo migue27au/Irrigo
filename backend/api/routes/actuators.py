@@ -44,10 +44,39 @@ def create_actuator(
         require_role="maintainer",
     )
 
+    channel = payload.get("channel", 0)
+
+    # -----------------------------
+    # VALIDATION: channel range
+    # -----------------------------
+    if channel < 0 or channel >= 4:
+        raise HTTPException(
+            status_code=400,
+            detail="Channel must be between 0 and 3",
+        )
+
+    # -----------------------------
+    # VALIDATION: unique channel per system
+    # -----------------------------
+    existing = (
+        db.query(SystemActuator)
+        .filter(
+            SystemActuator.system_id == system.id,
+            SystemActuator.channel == channel,
+        )
+        .first()
+    )
+
+    if existing:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Channel {channel} is already in use",
+        )
+
     actuator = SystemActuator(
         system_id=system.id,
         name=payload["name"],
-        channel=payload.get("channel", 0),
+        channel=channel,
         description=payload.get("description"),
         is_on=False,
         intensity=None,
@@ -58,7 +87,6 @@ def create_actuator(
     db.refresh(actuator)
 
     return actuator
-
 
 @router.put("/{actuator_id}")
 def update_actuator(

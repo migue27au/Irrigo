@@ -23,13 +23,6 @@ export default function SystemsPage() {
 
   const [sensors, setSensors] = useState([]);
   const [editingSensors, setEditingSensors] = useState({});
-  const [actuators, setActuators] = useState([]);
-  const [newActuator, setNewActuator] = useState({
-    name: "",
-    channel: 0,
-    description: "",
-  });
-  const [editingActuators, setEditingActuators] = useState({});
 
   // -----------------------------
   // SYSTEM LIST
@@ -68,7 +61,6 @@ export default function SystemsPage() {
     loadApiKey(selected.id, selected.role);
     loadSharedUsers(selected.id, selected.role);
     loadSensors(selected.id);
-    loadActuators(selected.id);
 
   }, [selected]);
 
@@ -104,95 +96,6 @@ export default function SystemsPage() {
       error("Failed to update sensor");
     }
   };
-  
-  // -----------------------------
-  // ACTUATORS
-  // -----------------------------
-
-  const loadActuators = async (systemId) => {
-    try {
-      const res = await api.get(`/irrigation-systems/${systemId}/actuators`);
-      setActuators(res.data);
-    } catch (err) {
-      setActuators([]);
-      error("Failed to load actuators");
-    }
-  };
-
-  const createActuator = async () => {
-    try {
-      const res = await api.post("/actuators/", {
-        system_id: selected.id,
-        name: newActuator.name,
-        channel: newActuator.channel,
-        description: newActuator.description,
-      });
-
-      setActuators((prev) => [res.data, ...prev]);
-
-      setNewActuator({
-        name: "",
-        channel: 0,
-        description: "",
-      });
-
-      success("Actuator created");
-    } catch (err) {
-      error(err?.response?.data?.detail || "Failed to create actuator");
-    }
-  };
-
-  const updateActuator = async (actuator) => {
-    try {
-      const res = await api.put(`/actuators/${actuator.id}`, {
-        name: editingActuators[actuator.id],
-      });
-
-      setActuators((prev) =>
-        prev.map((a) => (a.id === actuator.id ? res.data : a))
-      );
-
-      success("Actuator updated");
-    } catch (err) {
-      error("Failed to update actuator");
-    }
-  };
-
-  const toggleActuator = async (actuator, value) => {
-    try {
-      const res = await api.put(`/actuators/${actuator.id}`, {
-        is_on: value,
-      });
-
-      setActuators((prev) =>
-        prev.map((x) => (x.id === actuator.id ? res.data : x))
-      );
-
-      success("State updated");
-    } catch (err) {
-      error(err?.response?.data?.detail || "Failed to update state");
-    }
-  };
-
-  const deleteActuator = async (actuator) => {
-    const previous = actuators;
-
-    try {
-      setActuators((prev) =>
-        prev.filter((a) => a.id !== actuator.id)
-      );
-
-      await api.delete(`/actuators/${actuator.id}`);
-
-      success("Actuator deleted");
-    } catch (err) {
-      // If fail, rollback to previous
-      setActuators(previous);
-
-      error(err?.response?.data?.detail || "Failed to delete actuator");
-    }
-  };
-
 
   // -----------------------------
   // API KEY
@@ -610,125 +513,6 @@ export default function SystemsPage() {
                       >
                         Save
                       </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-
-            {/* ACTUATORS TABLE */}
-            <h5>Actuators</h5>
-
-            <table className="table table-dark table-striped">
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Channel</th>
-                  <th>Name</th>
-                  <th>On</th>
-                  <th>Last change</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {/* CREATE NEW ACTUATOR */}
-                <tr>
-                  <td>New</td>
-
-                  <td>
-                    <input
-                      className="form-control"
-                      type="number"
-                      min={0}
-                      max={3}
-                      value={newActuator.channel}
-                      onChange={(e) =>
-                        setNewActuator((prev) => ({
-                          ...prev,
-                          channel: Number(e.target.value),
-                        }))
-                      }
-                    />
-                  </td>
-
-                  <td>
-                    <input
-                      className="form-control"
-                      placeholder="Name"
-                      value={newActuator.name}
-                      onChange={(e) =>
-                        setNewActuator((prev) => ({
-                          ...prev,
-                          name: e.target.value,
-                        }))
-                      }
-                    />
-                  </td>
-
-                  <td colSpan={2}></td>
-
-                  <td>
-                    <button
-                      className="btn btn-sm btn-primary"
-                      onClick={createActuator}
-                      disabled={!newActuator.name}
-                    >
-                      Add
-                    </button>
-                  </td>
-                </tr>
-
-                {/* EXISTING ACTUATORS */}
-                {actuators.map((a) => (
-                  <tr key={a.id}>
-                    <td>{a.id}</td>
-
-                    <td>{a.channel}</td>
-
-                    <td>
-                      <input
-                        className="form-control"
-                        value={editingActuators[a.id] ?? a.name}
-                        onChange={(e) =>
-                          setEditingActuators((prev) => ({
-                            ...prev,
-                            [a.id]: e.target.value,
-                          }))
-                        }
-                      />
-                    </td>
-
-                    <td>
-                      <input
-                        type="checkbox"
-                        checked={a.is_on}
-                        onChange={(e) => toggleActuator(a, e.target.checked)}
-                      />
-                    </td>
-
-                    <td>
-                      {a.last_changed_at
-                        ? new Date(a.last_changed_at).toLocaleString()
-                        : "-"}
-                    </td>
-
-                    <td>
-                      <div className="d-flex gap-2">
-                        <button
-                          className="btn btn-sm btn-success"
-                          onClick={() => updateActuator(a)}
-                        >
-                          Save
-                        </button>
-
-                        <button
-                          className="btn btn-sm btn-danger"
-                          onClick={() => deleteActuator(a)}
-                        >
-                          Delete
-                        </button>
-                      </div>
                     </td>
                   </tr>
                 ))}
