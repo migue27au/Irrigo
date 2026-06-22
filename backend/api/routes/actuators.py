@@ -170,6 +170,36 @@ def get_actuators(
 # =====================================================
 # COMMANDS (WEB USER)
 # =====================================================
+@router.get("/{actuator_id}/commands", response_model=list[ActuatorCommandOut])
+def get_actuator_commands(
+    actuator_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    actuator = (
+        db.query(SystemActuator)
+        .filter(SystemActuator.id == actuator_id)
+        .first()
+    )
+
+    if not actuator:
+        raise HTTPException(404, "Actuator not found")
+
+    get_system_with_access(
+        db=db,
+        system_id=actuator.system_id,
+        user_id=user.id,
+        require_role="viewer",
+    )
+
+    commands = (
+        db.query(ActuatorCommand)
+        .filter(ActuatorCommand.actuator_id == actuator.id)
+        .order_by(ActuatorCommand.id.desc())
+        .all()
+    )
+
+    return commands
 
 @router.post("/commands", response_model=ActuatorCommandOut)
 def create_command(

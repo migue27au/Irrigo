@@ -6,6 +6,7 @@ import LoginPage from "./pages/LoginPage";
 import DashboardPage from "./pages/DashboardPage";
 import SystemsPage from "./pages/SystemsPage";
 import MeasuresPage from "./pages/MeasuresPage";
+import ActuatorsPage from "./pages/ActuatorsPage";
 
 import AppNavbar from "./components/AppNavbar";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -63,6 +64,16 @@ function App() {
                         </ProtectedRoute>
                     }
                 />
+                
+                <Route
+                    path="/actuators"
+                    element={
+                        <ProtectedRoute>
+                            <ActuatorsPage />
+                        </ProtectedRoute>
+                    }
+                />
+
             </Routes>
         </>
     );
