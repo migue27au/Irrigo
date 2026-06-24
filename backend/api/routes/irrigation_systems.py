@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 import secrets
 import hashlib
 
-from api.deps import get_db, get_current_user, get_system_with_access
+from api.deps import get_db, get_current_user, get_system_with_access, get_system_by_api_key
 
 from models.irrigation_system import IrrigationSystem
 from models.system_user import SystemUser
@@ -413,3 +413,15 @@ def get_system_actuators(
     )
 
     return actuators
+
+
+# -----------------------------------------------------
+# GET SYSTEM BY APIKEY
+# -----------------------------------------------------
+@router.get("/{system_id}", response_model=IrrigationSystemOut)
+def get_system(
+    system_id: int,
+    db: Session = Depends(get_db),
+    system=Depends(get_system_by_api_key),
+):
+    return system
