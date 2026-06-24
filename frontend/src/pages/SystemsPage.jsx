@@ -425,6 +425,15 @@ export default function SystemsPage() {
                 readOnly
               />
             </div>
+            <div className="mb-3">
+              <label className="form-label">Firmware version</label>
+              <input
+                className="form-control"
+                value={selected?.firmware_version || "Unknown"}
+                readOnly
+              />
+            </div>
+            
 
             <div className="mb-3">
               <label className="form-label">Role</label>
