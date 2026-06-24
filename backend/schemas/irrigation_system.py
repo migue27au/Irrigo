@@ -37,3 +37,5 @@ class IrrigationSystemOut(IrrigationSystemBase):
     class Config:
         from_attributes = True
 
+class FirmwareUpdateIn(BaseModel):
+    firmware_version: str

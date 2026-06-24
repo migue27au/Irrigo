@@ -16,6 +16,7 @@ from schemas.irrigation_system import (
     IrrigationSystemUpdate,
     IrrigationSystemOut,
     IrrigationSystemOutSimple,
+    FirmwareUpdateIn
 )
 
 from schemas.system_user import (
@@ -37,6 +38,23 @@ def get_this_system_by_api_key(
     db: Session = Depends(get_db),
     system=Depends(get_system_by_api_key),
 ):
+    return system
+
+# -----------------------------------------------------
+# UPDATE FIRMWARE VERSION (API KEY AUTH)
+# -----------------------------------------------------
+@router.post("/me/firmware", response_model=IrrigationSystemOutSimple)
+def update_firmware_version(
+    data: FirmwareUpdateIn,
+    db: Session = Depends(get_db),
+    system=Depends(get_system_by_api_key),
+):
+    # actualizar firmware en el sistema
+    system.firmware_version = data.firmware_version
+
+    db.commit()
+    db.refresh(system)
+
     return system
 
 # -----------------------------------------------------
