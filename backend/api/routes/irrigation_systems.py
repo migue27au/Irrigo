@@ -418,9 +418,8 @@ def get_system_actuators(
 # -----------------------------------------------------
 # GET SYSTEM BY APIKEY
 # -----------------------------------------------------
-@router.get("/{system_id}", response_model=IrrigationSystemOut)
-def get_system(
-    system_id: int,
+@router.get("/", response_model=IrrigationSystemOut)
+def get_system_by_apikey(
     db: Session = Depends(get_db),
     system=Depends(get_system_by_api_key),
 ):
