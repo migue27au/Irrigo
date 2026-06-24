@@ -1,0 +1,5 @@
+# Environment files
+.env
+
+# Secrets header (ESP32 credentials)
+electronics/irrigo-esp32/include/secrets.h
