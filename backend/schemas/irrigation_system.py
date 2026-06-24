@@ -17,6 +17,13 @@ class IrrigationSystemUpdate(BaseModel):
     firmware_version: str | None = None
 
 
+class IrrigationSystemOutSimple(IrrigationSystemBase):
+    id: int
+    firmware_version: str | None
+    last_seen_at: datetime | None
+    created_at: datetime
+    updated_at: datetime
+
 class IrrigationSystemOut(IrrigationSystemBase):
     id: int
     firmware_version: str | None

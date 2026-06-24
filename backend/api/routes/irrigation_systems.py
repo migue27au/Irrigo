@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.orm import Session
 import secrets
 import hashlib
@@ -15,6 +15,7 @@ from schemas.irrigation_system import (
     IrrigationSystemCreate,
     IrrigationSystemUpdate,
     IrrigationSystemOut,
+    IrrigationSystemOutSimple,
 )
 
 from schemas.system_user import (
@@ -27,6 +28,16 @@ from schemas.actuator import ActuatorOut
 
 
 router = APIRouter(prefix="/irrigation-systems", tags=["Irrigation Systems"])
+
+# -----------------------------------------------------
+# GET SYSTEM BY APIKEY
+# -----------------------------------------------------
+@router.get("/me", response_model=IrrigationSystemOutSimple)
+def get_this_system_by_api_key(
+    db: Session = Depends(get_db),
+    system=Depends(get_system_by_api_key),
+):
+    return system
 
 # -----------------------------------------------------
 # CREATE SYSTEM
@@ -413,14 +424,3 @@ def get_system_actuators(
     )
 
     return actuators
-
-
-# -----------------------------------------------------
-# GET SYSTEM BY APIKEY
-# -----------------------------------------------------
-@router.get("/", response_model=IrrigationSystemOut)
-def get_system_by_apikey(
-    db: Session = Depends(get_db),
-    system=Depends(get_system_by_api_key),
-):
-    return system
