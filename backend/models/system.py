@@ -4,8 +4,8 @@ from sqlalchemy.sql import func
 from db.base import Base
 
 
-class IrrigationSystem(Base):
-    __tablename__ = "irrigation_systems"
+class System(Base):
+    __tablename__ = "systems"
 
     id = Column(BigInteger, primary_key=True, index=True)
 

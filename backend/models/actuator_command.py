@@ -9,18 +9,9 @@ class ActuatorCommand(Base):
 
     id = Column(BigInteger, primary_key=True)
 
-    system_id = Column(
-        BigInteger,
-        ForeignKey("irrigation_systems.id", ondelete="CASCADE"),
-        index=True,
-        nullable=False
-    )
+    system_id = Column(BigInteger, ForeignKey("systems.id", ondelete="CASCADE"), index=True, nullable=False)
 
-    actuator_id = Column(
-        BigInteger,
-        ForeignKey("system_actuators.id", ondelete="CASCADE"),
-        nullable=False
-    )
+    actuator_id = Column(BigInteger, ForeignKey("systems.id", ondelete="CASCADE"), nullable=False)
 
     name = Column(String(255), nullable=True)
 
@@ -36,8 +27,4 @@ class ActuatorCommand(Base):
     executed_count = Column(BigInteger, default=0, nullable=False)
     last_executed_at = Column(DateTime(timezone=True), nullable=True)
 
-    created_at = Column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        nullable=False
-    )
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

@@ -23,6 +23,9 @@ class ActuatorCommandOut(BaseModel):
     class Config:
         from_attributes = True
 
+class ActuatorCommandOutBatch(BaseModel):
+    actuator_id: int
+    commands: List[ActuatorCommandOut]
 
 # =====================================================
 # IrrigationSystem GET RESPONSE
@@ -82,7 +85,7 @@ class ActuatorOut(BaseModel):
 
     description: Optional[str] = None
 
-    is_on: bool
+    enabled: bool
     intensity: Optional[float] = None
 
     last_changed_at: Optional[datetime] = None

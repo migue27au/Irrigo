@@ -11,13 +11,14 @@ from api.deps import (
 )
 
 from models.system_sensor import Sensor
-from models.sensor_reading import SensorReading
+from models.measure import Measure
 from models.system_user import SystemUser
 
 from schemas.sensor import (
     SensorBatchCreate,
     SensorOut,
     SensorUpdate,
+    MeasureBatch,
 )
 
 router = APIRouter(prefix="/sensors", tags=["Sensors"])
@@ -34,7 +35,8 @@ def create_sensors(
 ):
     created = []
     existing = []
-
+    print("*"*40)
+    print(payload.sensors)
     for item in payload.sensors:
 
         sensor = (
@@ -53,7 +55,6 @@ def create_sensors(
         sensor = Sensor(
             system_id=system.id,
             sensor_key=item.sensor_key,
-            name=item.name,
             unit=item.unit,
             sensor_type=item.sensor_type,
         )
@@ -98,19 +99,19 @@ def update_sensor(
 # -----------------------------------------------------
 @router.post("/ingest")
 def ingest_sensor_data(
-    payload: dict,
+    payload: MeasureBatch,
     db: Session = Depends(get_db),
     system=Depends(get_system_by_api_key),
 ):
     ingested = []
 
-    for item in payload["data"]:
+    for item in payload.data:
 
         sensor = (
             db.query(Sensor)
             .filter(
                 Sensor.system_id == system.id,
-                Sensor.sensor_key == item["sensor_key"]
+                Sensor.sensor_key == item.sensor_key,
             )
             .first()
         )
@@ -118,11 +119,10 @@ def ingest_sensor_data(
         if not sensor:
             continue
 
-        reading = SensorReading(
+        reading = Measure(
             sensor_id=sensor.id,
-            value=item["value"],
-            recorded_at=item.get("timestamp")
-            or datetime.utcnow(),
+            value=item.value,
+            recorded_at=item.timestamp or datetime.utcnow(),
         )
 
         db.add(reading)
@@ -162,7 +162,7 @@ def ingest_single_sensor(
             detail="Sensor not found"
         )
 
-    reading = SensorReading(
+    reading = Measure(
         sensor_id=sensor.id,
         value=value,
         recorded_at=datetime.utcnow(),
@@ -191,12 +191,12 @@ def get_latest_sensor_value(
     )
 
     reading = (
-        db.query(SensorReading)
+        db.query(Measure)
         .filter(
-            SensorReading.sensor_id == sensor.id
+            Measure.sensor_id == sensor.id
         )
         .order_by(
-            SensorReading.recorded_at.desc()
+            Measure.recorded_at.desc()
         )
         .first()
     )
@@ -241,17 +241,17 @@ def get_multi_sensor_history(
     result = []
 
     for sensor in sensors:
-        query = db.query(SensorReading).filter(
-            SensorReading.sensor_id == sensor.id
+        query = db.query(Measure).filter(
+            Measure.sensor_id == sensor.id
         )
 
         if from_date:
-            query = query.filter(SensorReading.recorded_at >= from_date)
+            query = query.filter(Measure.recorded_at >= from_date)
 
         if to_date:
-            query = query.filter(SensorReading.recorded_at <= to_date)
+            query = query.filter(Measure.recorded_at <= to_date)
 
-        readings = query.order_by(SensorReading.recorded_at.asc()).all()
+        readings = query.order_by(Measure.recorded_at.asc()).all()
 
         result.append({
             "sensor_id": sensor.id,
@@ -290,26 +290,26 @@ def get_sensor_history(
     )
 
     query = (
-        db.query(SensorReading)
+        db.query(Measure)
         .filter(
-            SensorReading.sensor_id == sensor.id
+            Measure.sensor_id == sensor.id
         )
     )
 
     if from_date:
         query = query.filter(
-            SensorReading.recorded_at >= from_date
+            Measure.recorded_at >= from_date
         )
 
     if to_date:
         query = query.filter(
-            SensorReading.recorded_at <= to_date
+            Measure.recorded_at <= to_date
         )
 
     readings = (
         query
         .order_by(
-            SensorReading.recorded_at.asc()
+            Measure.recorded_at.asc()
         )
         .limit(limit)
         .all()

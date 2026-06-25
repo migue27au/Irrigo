@@ -1,10 +1,10 @@
 #include "ApiService.h"
 
-ApiService::ApiService(const char* host, uint16_t port, const String& apiKey, const String& firmware, bool logger){
+ApiService::ApiService(const char* host, uint16_t port, const char* apiKey, const char* firmware, bool logger){
     this->host = (char*)host;
     this->port = port;
-    this->apiKey = apiKey;
-    this->firmware = firmware;
+    strlcpy(this->apiKey, apiKey, sizeof(this->apiKey));
+    strlcpy(this->firmware, firmware, sizeof(this->firmware));
     this->logger = logger;
 }
 
@@ -52,10 +52,10 @@ bool ApiService::parseJsonResponse(HTTPResponse& response, JsonDocument& documen
 //============================================================
 
 bool ApiService::getCurrentSystem(JsonDocument& payload){
-    HTTPRequest httpRequest = buildGetRequest(ENDPOINT_IRRIGATION_ME);
-    HTTPResponse httpResponse = http.sendRequest(httpRequest);
+    HTTPRequest request = buildGetRequest(ENDPOINT_IRRIGATION_ME);
+    HTTPResponse response = http.sendRequest(request);
 
-    return parseJsonResponse(httpResponse, payload);
+    return parseJsonResponse(response, payload);
 }
 
 bool ApiService::updateFirmwareVersion() {
@@ -68,4 +68,49 @@ bool ApiService::updateFirmwareVersion() {
     HTTPResponse response = http.sendRequest(request);
 
     return response.getResponseCode() == HTTP_RESPONSE_OK;
+}
+
+bool ApiService::createSensors(JsonDocument doc) {
+    String payload;
+    serializeJson(doc, payload);
+
+    HTTPRequest request = buildPostRequest(ENDPOINT_SENSORS_CREATE, payload);
+    HTTPResponse response = http.sendRequest(request);
+
+    return response.getResponseCode() == HTTP_RESPONSE_OK;
+}
+
+bool ApiService::ingestMeasures(JsonDocument doc) {
+    String payload;
+    serializeJson(doc, payload);
+
+    HTTPRequest request = buildPostRequest(ENDPOINT_SENSORS_INGEST, payload);
+    HTTPResponse response = http.sendRequest(request);
+
+    return response.getResponseCode() == HTTP_RESPONSE_OK;
+}
+
+bool ApiService::getActuators(JsonDocument& payload) {
+    HTTPRequest request = buildGetRequest(ENDPOINT_ACTUATORS_GET);
+    HTTPResponse response = http.sendRequest(request);
+
+    return parseJsonResponse(response, payload);
+}
+
+bool ApiService::getCommandsOfActuator(String actuator_id, JsonDocument& payload){
+    String endpoint = ENDPOINT_COMMANDS_GET;
+    endpoint.replace("{actuator_id}", actuator_id);
+    HTTPRequest request = buildGetRequest(endpoint);
+    HTTPResponse response = http.sendRequest(request);
+
+    return parseJsonResponse(response, payload);
+}
+
+bool ApiService::getRulesOfCommand(String command_id, JsonDocument& payload){
+    String endpoint = ENDPOINT_RULES;
+    endpoint.replace("{command_id}", command_id);
+    HTTPRequest request = buildGetRequest(endpoint);
+    HTTPResponse response = http.sendRequest(request);
+
+    return parseJsonResponse(response, payload);
 }

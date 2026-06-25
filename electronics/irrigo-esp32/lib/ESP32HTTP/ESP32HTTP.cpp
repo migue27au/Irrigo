@@ -179,189 +179,6 @@ WiFiClientSecure HTTP::getWifiClientSecure(){
 	return clientSecure;
 }
 
-HTTPResponse HTTP::sendRequest(){
-
-	HTTPResponse res;
-
-	if(isSSL == false && client.connect(host, port)){
-		if(log){
-			Serial.println("HTTP.h: Connected to server");
-		}
-
-		String data = httpRequest.getMethod() + " " + httpRequest.getResource() + " HTTP/1.1\r\n";
-		data += "Host: " + getStringHost() + ":" + (String)port + "\r\n";
-		data += "Content-Length: " + (String)httpRequest.getPayload().length() + "\r\n";
-		data += httpRequest.getRequestHeaders();
-		data += "\r\n";
-		data += httpRequest.getPayload();
-
-		if(log){
-			Serial.println("HTTP.h: Request:");
-			Serial.println(data);
-		}
-
-		client.print(data);
-
-		
-		String responseHeaders = "";
-		String payload = "";
-		String firstLine = "";
-
-		bool firstLineReaded = false;
-		uint16_t cont = 0;
-		while(client.connected() && firstLineReaded == false && cont < 10000){
-			firstLine = client.readStringUntil('\n');
-			if(firstLine.length() > 5){
-				firstLineReaded = true;
-			} else {
-				cont++;
-			}
-
-		}
-
-		if(cont >= 10000){
-			if(log){
-				Serial.println("HTTP.h> ERROR READING FIRST LINE.");
-			}
-		}
-
-		if(log){
-			Serial.println("HTTP.h: Response");
-			Serial.print("HTTP.h> Firstline -> ");
-			Serial.println(firstLine);
-		}
-
-		unsigned int code;
-		String codeString = firstLine;
-		codeString.replace("HTTP/1.1 ", "");
-		code = 100*utilCharToInt(codeString.charAt(0));
-		code += 10*utilCharToInt(codeString.charAt(1));
-		code += utilCharToInt(codeString.charAt(2));
-
-		int PayloadSize = client.available();
-
-		while (client.connected()){
-			String line = client.readStringUntil('\n');
-
-			if(line == "\r"){
-		    	while (client.available()) {
-		    		char c = client.read();
-			    	payload += String(c);
-			    }
-				break;
-			} else {
-				responseHeaders += line + "\n";
-			}
-		}
-
-		if(log){
-			Serial.print("HTTP.h> ResponseCode -> ");
-			Serial.println(code);
-			Serial.println("HTTP.h> ResponseHeaders:");
-			Serial.println(responseHeaders);
-			Serial.print("HTTP.h> PayloadSize -> ");
-			Serial.println(PayloadSize);
-			Serial.print("HTTP.h> ResponsePayload -> ");
-			Serial.println(payload);
-		}
-
-		res = HTTPResponse(code, responseHeaders, payload);
-		httpResponse = res;
-	} else if(isSSL == true && clientSecure.connect(host, port)){
-		if(log){
-			Serial.println("HTTP.h: Connected to server");
-		}
-
-		String data = httpRequest.getMethod() + " " + httpRequest.getResource() + " HTTP/1.1\r\n";
-		data += "Host: " + getStringHost() + ":" + (String)port + "\r\n";
-		data += "Content-Length: " + (String)httpRequest.getPayload().length() + "\r\n";
-		data += httpRequest.getRequestHeaders();
-		data += "\r\n";
-		data += httpRequest.getPayload();
-
-		if(log){
-			Serial.println("HTTP.h: Request:");
-			Serial.println(data);
-		}
-
-		clientSecure.print(data);
-
-		
-		String responseHeaders = "";
-		String payload = "";
-		String firstLine = "";
-
-		bool firstLineReaded = false;
-		uint16_t cont = 0;
-		while(clientSecure.connected() && firstLineReaded == false && cont < 10000){
-			firstLine = clientSecure.readStringUntil('\n');
-			if(firstLine.length() > 5){
-				firstLineReaded = true;
-			} else {
-				cont++;
-			}
-
-		}
-
-		if(cont >= 10000){
-			if(log){
-				Serial.println("HTTP.h> ERROR READING FIRST LINE.");
-			}
-		}
-
-		if(log){
-			Serial.println("HTTP.h: Response");
-			Serial.print("HTTP.h> Firstline -> ");
-			Serial.println(firstLine);
-		}
-
-		unsigned int code;
-		String codeString = firstLine;
-		codeString.replace("HTTP/1.1 ", "");
-		code = 100*utilCharToInt(codeString.charAt(0));
-		code += 10*utilCharToInt(codeString.charAt(1));
-		code += utilCharToInt(codeString.charAt(2));
-
-		int PayloadSize = clientSecure.available();
-
-		while (clientSecure.connected()){
-			String line = clientSecure.readStringUntil('\n');
-
-			if(line == "\r"){
-		    	while (clientSecure.available()) {
-		    		char c = clientSecure.read();
-			    	payload += String(c);
-			    }
-				break;
-			} else {
-				responseHeaders += line + "\n";
-			}
-		}
-
-		if(log){
-			Serial.print("HTTP.h> ResponseCode -> ");
-			Serial.println(code);
-			Serial.println("HTTP.h> ResponseHeaders:");
-			Serial.println(responseHeaders);
-			Serial.print("HTTP.h> PayloadSize -> ");
-			Serial.println(PayloadSize);
-			Serial.print("HTTP.h> ResponsePayload -> ");
-			Serial.println(payload);
-		}
-
-		res = HTTPResponse(code, responseHeaders, payload);
-		httpResponse = res;
-	}	else if(log){
-		Serial.println("HTTP.h: Cannot connect to server.");
-	}
-
-	client.stop();
-	clientSecure.stop();
-
-	return res;
-}
-
-
 HTTPResponse HTTP::sendRequest(HTTPRequest request){
 	HTTPResponse res;
 
@@ -382,6 +199,9 @@ HTTPResponse HTTP::sendRequest(HTTPRequest request){
 		}
 
 		client.print(data);
+		if(log){
+			Serial.println("HTTP.h: Request sent");
+		}
 
 		String responseHeaders = "";
 		String payload = "";
@@ -389,55 +209,89 @@ HTTPResponse HTTP::sendRequest(HTTPRequest request){
 
 		bool firstLineReaded = false;
 		uint16_t cont = 0;
+
 		while(client.connected() && firstLineReaded == false && cont < 10000){
 			firstLine = client.readStringUntil('\n');
+
 			if(firstLine.length() > 5){
 				firstLineReaded = true;
-				Serial.println("Firstline readed");
 			} else {
 				cont++;
 			}
+		}
 
-			if(cont >= 10000){
-				if(log){
-					Serial.println("HTTP.h> ERROR READING FIRST LINE.");
-				}
+		if(cont >= 10000){
+			if(log){
+				Serial.println("HTTP.h> ERROR READING FIRST LINE.");
 			}
 		}
 
-		while (client.available()) {
-				String line = client.readStringUntil('\n');
-				Serial.println(line);
-				if(line == "\r"){
-		    	while (client.available()) {
-		    		char c = client.read();
-			    	payload += String(c);
-			    }
-					break;
-				} else {
-					responseHeaders += line + "\n";
-				}
-			}
-
-		unsigned int code;
-		String codeString = firstLine.substring(firstLine.indexOf(" ")+1, firstLine.lastIndexOf(" "));
-
-		code = 100*utilCharToInt(codeString.charAt(0));
-		code += 10*utilCharToInt(codeString.charAt(1));
-		code += utilCharToInt(codeString.charAt(2));
-
-		int payloadSize = payload.length();
-		
 		if(log){
 			Serial.println("HTTP.h: Response");
 			Serial.print("HTTP.h> Firstline -> ");
 			Serial.println(firstLine);
+		}
+
+		unsigned int code;
+		String codeString = firstLine;
+		codeString.replace("HTTP/1.1 ", "");
+
+		code = 100 * utilCharToInt(codeString.charAt(0));
+		code += 10 * utilCharToInt(codeString.charAt(1));
+		code += utilCharToInt(codeString.charAt(2));
+
+		int contentLength = 0;
+
+		/*
+		* Leer headers
+		*/
+		while(client.connected()){
+			String line = client.readStringUntil('\n');
+
+			String lowerLine = line;
+			lowerLine.toLowerCase();
+			if(lowerLine.startsWith("content-length:")){
+				String len = line.substring(15);
+				len.trim();
+				contentLength = len.toInt();
+			}
+
+			if(line == "\r"){
+				break;
+			}
+
+			responseHeaders += line + "\n";
+		}
+
+		/*
+		* Esperar a recibir el body completo
+		*/
+		unsigned long start = millis();
+
+		while(
+			payload.length() < contentLength &&
+			millis() - start < (TIMEOUT_SECONDS * 1000)
+		){
+			while(client.available()){
+				payload += (char)client.read();
+			}
+
+			delay(1);
+		}
+
+		if(log){
 			Serial.print("HTTP.h> ResponseCode -> ");
 			Serial.println(code);
+
 			Serial.println("HTTP.h> ResponseHeaders:");
 			Serial.println(responseHeaders);
+
+			Serial.print("HTTP.h> ContentLength -> ");
+			Serial.println(contentLength);
+
 			Serial.print("HTTP.h> PayloadSize -> ");
-			Serial.println(payloadSize);			
+			Serial.println(payload.length());
+
 			Serial.print("HTTP.h> ResponsePayload -> ");
 			Serial.println(payload);
 		}
@@ -460,6 +314,9 @@ HTTPResponse HTTP::sendRequest(HTTPRequest request){
 		}
 
 		clientSecure.print(data);
+		if(log){
+			Serial.println("HTTP.h: Request sent");
+		}
 
 		String responseHeaders = "";
 		String payload = "";
@@ -467,55 +324,89 @@ HTTPResponse HTTP::sendRequest(HTTPRequest request){
 
 		bool firstLineReaded = false;
 		uint16_t cont = 0;
+
 		while(clientSecure.connected() && firstLineReaded == false && cont < 10000){
 			firstLine = clientSecure.readStringUntil('\n');
+
 			if(firstLine.length() > 5){
 				firstLineReaded = true;
-				Serial.println("Firstline readed");
 			} else {
 				cont++;
 			}
+		}
 
-			if(cont >= 10000){
-				if(log){
-					Serial.println("HTTP.h> ERROR READING FIRST LINE.");
-				}
+		if(cont >= 10000){
+			if(log){
+				Serial.println("HTTP.h> ERROR READING FIRST LINE.");
 			}
 		}
 
-		while (clientSecure.available()) {
-				String line = clientSecure.readStringUntil('\n');
-				Serial.println(line);
-				if(line == "\r"){
-		    	while (clientSecure.available()) {
-		    		char c = clientSecure.read();
-			    	payload += String(c);
-			    }
-					break;
-				} else {
-					responseHeaders += line + "\n";
-				}
-			}
-
-		unsigned int code;
-		String codeString = firstLine.substring(firstLine.indexOf(" ")+1, firstLine.lastIndexOf(" "));
-
-		code = 100*utilCharToInt(codeString.charAt(0));
-		code += 10*utilCharToInt(codeString.charAt(1));
-		code += utilCharToInt(codeString.charAt(2));
-
-		int payloadSize = payload.length();
-		
 		if(log){
 			Serial.println("HTTP.h: Response");
 			Serial.print("HTTP.h> Firstline -> ");
 			Serial.println(firstLine);
+		}
+
+		unsigned int code;
+		String codeString = firstLine;
+		codeString.replace("HTTP/1.1 ", "");
+
+		code = 100 * utilCharToInt(codeString.charAt(0));
+		code += 10 * utilCharToInt(codeString.charAt(1));
+		code += utilCharToInt(codeString.charAt(2));
+
+		int contentLength = 0;
+
+		/*
+		* Leer headers
+		*/
+		while(clientSecure.connected()){
+			String line = clientSecure.readStringUntil('\n');
+
+			String lowerLine = line;
+			lowerLine.toLowerCase();
+			if(lowerLine.startsWith("content-length:")){
+				String len = line.substring(15);
+				len.trim();
+				contentLength = len.toInt();
+			}
+
+			if(line == "\r"){
+				break;
+			}
+
+			responseHeaders += line + "\n";
+		}
+
+		/*
+		* Esperar a recibir el body completo
+		*/
+		unsigned long start = millis();
+
+		while(
+			payload.length() < contentLength &&
+			millis() - start < (TIMEOUT_SECONDS * 1000)
+		){
+			while(clientSecure.available()){
+				payload += (char)clientSecure.read();
+			}
+
+			delay(1);
+		}
+
+		if(log){
 			Serial.print("HTTP.h> ResponseCode -> ");
 			Serial.println(code);
+
 			Serial.println("HTTP.h> ResponseHeaders:");
 			Serial.println(responseHeaders);
+
+			Serial.print("HTTP.h> ContentLength -> ");
+			Serial.println(contentLength);
+
 			Serial.print("HTTP.h> PayloadSize -> ");
-			Serial.println(payloadSize);			
+			Serial.println(payload.length());
+
 			Serial.print("HTTP.h> ResponsePayload -> ");
 			Serial.println(payload);
 		}

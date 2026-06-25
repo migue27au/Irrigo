@@ -12,6 +12,7 @@ from api.deps import (
 
 from models.system_actuator import SystemActuator
 from models.actuator_command import ActuatorCommand
+
 from models.actuator_event import ActuatorEvent
 
 from schemas.actuator import (
@@ -20,6 +21,8 @@ from schemas.actuator import (
     ActuatorCommandCreate,
     ActuatorCommandUpdate,
     ActuatorExecutedIn,
+    ActuatorOut,
+    ActuatorCommandOutBatch,
 )
 
 router = APIRouter(prefix="/actuators", tags=["Actuators"])
@@ -74,7 +77,7 @@ def create_actuator(
         name=payload["name"],
         channel=channel,
         description=payload.get("description"),
-        is_on=False,
+        enabled=False,
         intensity=None,
     )
 
@@ -141,64 +144,29 @@ def delete_actuator(
 
 
 # =====================================================
-# ESP32 - GET COMMANDS
+# ESP32 - GET ACTUATORS
 # =====================================================
-
-@router.get("/get", response_model=ActuatorGetResponse)
-def get_actuators(
+@router.get("/get", response_model=list[ActuatorOut])
+def list_actuators(
     db: Session = Depends(get_db),
     system=Depends(get_system_by_api_key),
 ):
-    now = datetime.utcnow()
-
-    expired = (
-        db.query(ActuatorCommand)
-        .filter(
-            ActuatorCommand.system_id == system.id,
-            ActuatorCommand.trigger_type == "manual",
-            ActuatorCommand.executed_count == 0,
-            ActuatorCommand.enabled == True,
-            ActuatorCommand.created_at < now - timedelta(minutes=MANUAL_COMMAND_TIMEOUT_MINUTES),
-        )
+    return (
+        db.query(SystemActuator)
+        .filter(SystemActuator.system_id == system.id)
+        .order_by(SystemActuator.channel.asc())
         .all()
     )
 
-    for cmd in expired:
-        cmd.enabled = False
-        cmd.disabled_reason = "timeout"
-
-    commands = (
-        db.query(ActuatorCommand)
-        .filter(
-            ActuatorCommand.system_id == system.id,
-            ActuatorCommand.enabled == True,
-            (
-                (ActuatorCommand.trigger_type == "automatic")
-                |
-                (
-                    (ActuatorCommand.trigger_type == "manual")
-                    & (ActuatorCommand.executed_count == 0)
-                )
-            )
-        )
-        .all()
-    )
-
-    db.commit()
-
-    return ActuatorGetResponse(
-        commands=[ActuatorCommandOut.from_orm(c) for c in commands]
-    )
-
-
 # =====================================================
-# COMMANDS (WEB USER)
+# ESP32 - GET COMMANDS
 # =====================================================
-@router.get("/{actuator_id}/commands", response_model=list[ActuatorCommandOut])
+
+@router.get("/{actuator_id}/commands", response_model=ActuatorCommandOutBatch)
 def get_actuator_commands(
     actuator_id: int,
     db: Session = Depends(get_db),
-    user=Depends(get_current_user),
+    system=Depends(get_system_by_api_key),
 ):
     actuator = (
         db.query(SystemActuator)
@@ -209,13 +177,6 @@ def get_actuator_commands(
     if not actuator:
         raise HTTPException(404, "Actuator not found")
 
-    get_system_with_access(
-        db=db,
-        system_id=actuator.system_id,
-        user_id=user.id,
-        require_role="viewer",
-    )
-
     commands = (
         db.query(ActuatorCommand)
         .filter(ActuatorCommand.actuator_id == actuator.id)
@@ -223,7 +184,13 @@ def get_actuator_commands(
         .all()
     )
 
-    return commands
+    return ActuatorCommandOutBatch(
+        actuator_id=actuator.id,
+        commands=[
+            ActuatorCommandOut.model_validate(command)
+            for command in commands
+        ]
+)
 
 @router.post("/commands", response_model=ActuatorCommandOut)
 def create_command(
@@ -263,7 +230,43 @@ def create_command(
 
     return cmd
 
+# =====================================================
+# COMMANDS (WEB USER)
+# =====================================================
+@router.get("/{actuator_id}/commandsfromweb", response_model=list[ActuatorCommandOut])
+def get_actuator_commands(
+    actuator_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    actuator = (
+        db.query(SystemActuator)
+        .filter(SystemActuator.id == actuator_id)
+        .first()
+    )
 
+    if not actuator:
+        raise HTTPException(404, "Actuator not found")
+
+    get_system_with_access(
+        db=db,
+        system_id=actuator.system_id,
+        user_id=user.id,
+        require_role="viewer",
+    )
+
+    commands = (
+        db.query(ActuatorCommand)
+        .filter(ActuatorCommand.actuator_id == actuator.id)
+        .order_by(ActuatorCommand.id.desc())
+        .all()
+    )
+
+    return commands
+
+# =====================================================
+# UPDATE COMMAND (WEB USER)
+# =====================================================
 @router.put("/commands/{command_id}", response_model=ActuatorCommandOut)
 def update_command(command_id: int, payload: ActuatorCommandUpdate, db: Session = Depends(get_db), user=Depends(get_current_user)):
     cmd = db.query(ActuatorCommand).filter(ActuatorCommand.id == command_id).first()
@@ -286,7 +289,9 @@ def update_command(command_id: int, payload: ActuatorCommandUpdate, db: Session 
 
     return cmd
 
-
+# =====================================================
+# DELETE COMMAND (WEB USER)
+# =====================================================
 @router.delete("/commands/{command_id}")
 def delete_command(command_id: int, db: Session = Depends(get_db), user=Depends(get_current_user)):
     cmd = db.query(ActuatorCommand).filter(ActuatorCommand.id == command_id).first()
@@ -310,7 +315,6 @@ def delete_command(command_id: int, db: Session = Depends(get_db), user=Depends(
 # =====================================================
 # ESP32 CONFIRMATION
 # =====================================================
-
 @router.post("/executed")
 def actuator_executed(payload: ActuatorExecutedIn, db: Session = Depends(get_db), system=Depends(get_system_by_api_key)):
 

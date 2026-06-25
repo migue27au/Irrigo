@@ -5,10 +5,10 @@ from db.db import SessionLocal
 from core.security import hash_password
 
 from models.user import User
-from models.irrigation_system import IrrigationSystem
+from models.system import System
 from models.system_user import SystemUser
 from models.system_sensor import Sensor
-from models.sensor_reading import SensorReading
+from models.measure import Measure
 
 from models.system_actuator import SystemActuator
 from models.actuator_command import ActuatorCommand
@@ -39,15 +39,15 @@ def create_system_if_missing(db, owner, alias, description):
     debug("SYSTEM", f"checking {alias}")
 
     system = (
-        db.query(IrrigationSystem)
-        .filter(IrrigationSystem.alias == alias)
+        db.query(System)
+        .filter(System.alias == alias)
         .first()
     )
 
     if system:
         return system
 
-    system = IrrigationSystem(
+    system = System(
         alias=alias,
         description=description,
         api_key=f"seed-{alias.lower().replace(' ', '-')}"
@@ -123,8 +123,8 @@ def create_sensor_if_missing(db, system, sensor_key, sensor_type, unit):
 
 def create_readings_if_missing(db, sensor):
     existing = (
-        db.query(SensorReading)
-        .filter(SensorReading.sensor_id == sensor.id)
+        db.query(Measure)
+        .filter(Measure.sensor_id == sensor.id)
         .count()
     )
 
@@ -142,7 +142,7 @@ def create_readings_if_missing(db, sensor):
             value = round(random.uniform(30, 90), 2)
 
         db.add(
-            SensorReading(
+            Measure(
                 sensor_id=sensor.id,
                 value=value,
                 recorded_at=now - timedelta(minutes=i * 15)
@@ -172,7 +172,7 @@ def create_actuator_if_missing(db, system, name, channel):
         name=name,
         channel=channel,
         description=f"{name} actuator",
-        is_on=False,
+        enabled=False,
         intensity=None
     )
 
@@ -343,6 +343,8 @@ def run():
         db.commit()
         db.refresh(admin)
         db.refresh(test)
+
+        return
 
         # ---------------- SYSTEMS ----------------
         systems = [

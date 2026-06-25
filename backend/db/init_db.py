@@ -5,10 +5,10 @@ from db.base import Base
 from db.db import engine
 
 from models.user import User
-from models.irrigation_system import IrrigationSystem
+from models.system import System
 from models.system_user import SystemUser
 from models.system_sensor import Sensor
-from models.sensor_reading import SensorReading
+from models.measure import Measure
 
 
 def wait_for_db():

@@ -10,25 +10,13 @@ class RuleGroup(Base):
 
     id = Column(BigInteger, primary_key=True)
 
-    system_id = Column(
-        BigInteger,
-        ForeignKey("irrigation_systems.id", ondelete="CASCADE"),
-        nullable=False
-    )
+    system_id = Column(BigInteger, ForeignKey("systems.id", ondelete="CASCADE"), nullable=False)
 
     name = Column(String(255), nullable=True)
     description = Column(String(255), nullable=True)
 
     enabled = Column(Boolean, default=True)
 
-    created_at = Column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        nullable=False
-    )
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
-    conditions = relationship(
-        "RuleCondition",
-        back_populates="group",
-        cascade="all, delete-orphan"
-    )
+    conditions = relationship("RuleCondition", back_populates="group", cascade="all, delete-orphan")

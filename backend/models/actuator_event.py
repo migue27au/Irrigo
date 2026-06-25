@@ -8,17 +8,9 @@ class ActuatorEvent(Base):
 
     id = Column(BigInteger, primary_key=True)
 
-    actuator_id = Column(
-        BigInteger,
-        ForeignKey("system_actuators.id", ondelete="CASCADE"),
-        nullable=False
-    )
+    actuator_id = Column(BigInteger, ForeignKey("system_actuators.id", ondelete="CASCADE"), nullable=False)
 
-    command_id = Column(
-        BigInteger,
-        ForeignKey("actuator_commands.id", ondelete="SET NULL"),
-        nullable=True
-    )
+    command_id = Column(BigInteger, ForeignKey("actuator_commands.id", ondelete="SET NULL"), nullable=True)
 
     intensity = Column(Numeric(5, 2), nullable=True)
     duration_seconds = Column(BigInteger, nullable=True)

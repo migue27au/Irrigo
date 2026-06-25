@@ -159,7 +159,7 @@ export default function SystemsPage() {
   const toggleActuator = async (actuator, value) => {
     try {
       const res = await api.put(`/actuators/${actuator.id}`, {
-        is_on: value,
+        enabled: value,
       });
 
       setActuators((prev) =>
@@ -632,7 +632,7 @@ export default function SystemsPage() {
                   <th>ID</th>
                   <th>Channel</th>
                   <th>Name</th>
-                  <th>On</th>
+                  <th>Enabled</th>
                   <th>Last change</th>
                   <th>Action</th>
                 </tr>
@@ -709,7 +709,7 @@ export default function SystemsPage() {
                     <td>
                       <input
                         type="checkbox"
-                        checked={a.is_on}
+                        checked={a.enabled}
                         onChange={(e) => toggleActuator(a, e.target.checked)}
                       />
                     </td>

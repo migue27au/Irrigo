@@ -1,12 +1,13 @@
 from pydantic import BaseModel
 from datetime import datetime
+from typing import List, Optional
 
 
 class SensorCreate(BaseModel):
     sensor_key: str
-    name: str | None = None
     unit: str | None = None
     sensor_type: str | None = None
+    enabled: bool
 
 class SensorUpdate(BaseModel):
     sensor_key: str | None = None
@@ -33,3 +34,12 @@ class SensorOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+class Measure(BaseModel):
+    sensor_key: str
+    value: float
+    timestamp: Optional[datetime] = None
+
+
+class MeasureBatch(BaseModel):
+    data: List[Measure]

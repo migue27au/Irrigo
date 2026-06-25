@@ -69,35 +69,56 @@ def build_group_out(group: RuleGroup, db: Session):
     )
 
 
+@router.get("/{command_id}/get", response_model=RuleGetResponse)
+def get_rules(
+    command_id: int,
+    db: Session = Depends(get_db),
+    system=Depends(get_system_by_api_key),
+):
+    command = resolve_system(command_id, db, system)
+
+    if command.trigger_type != "automatic":
+        raise HTTPException(404, "Command not found")
+
+    groups = (
+        db.query(RuleGroup)
+        .join(RuleGroupActuator, RuleGroupActuator.group_id == RuleGroup.id)
+        .filter(
+            RuleGroup.system_id == system.id,
+            RuleGroupActuator.command_id == command.id,
+            RuleGroup.enabled == True,
+        )
+        .all()
+    )
+
+    return RuleGetResponse(
+        command_id=command.id,
+        groups=[build_group_out(g, db) for g in groups],
+    )
+
 # =====================================================
 # ESP32 + WEB - GET RULES (DUAL AUTH)
 # =====================================================
-
 @router.get("/{command_id}", response_model=RuleGetResponse)
 def get_rules(
     command_id: int,
     db: Session = Depends(get_db),
-    api_key: str | None = Header(default=None, alias="X-API-Key"),
     user=Depends(get_current_user),
 ):
-    system = None
+    
+    cmd = db.query(ActuatorCommand).filter(
+        ActuatorCommand.id == command_id
+    ).first()
 
-    if api_key:
-        system = get_system_by_api_key(db=db, api_key=api_key)
-    else:
-        cmd = db.query(ActuatorCommand).filter(
-            ActuatorCommand.id == command_id
-        ).first()
+    if not cmd:
+        raise HTTPException(404, "Command not found")
 
-        if not cmd:
-            raise HTTPException(404, "Command not found")
-
-        system, role = get_system_with_access(
-            db=db,
-            system_id=cmd.system_id,
-            user_id=user.id,
-            require_role="viewer",
-        )
+    system, role = get_system_with_access(
+        db=db,
+        system_id=cmd.system_id,
+        user_id=user.id,
+        require_role="viewer",
+    )
 
     command = resolve_system(command_id, db, system)
 

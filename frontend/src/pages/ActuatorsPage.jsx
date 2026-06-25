@@ -105,7 +105,7 @@ export default function ActuatorPage() {
   const fetchCommands = async (actuatorId) => {
     try {
       const res = await api.get(
-        `/actuators/${actuatorId}/commands`
+        `/actuators/${actuatorId}/commandsfromweb`
       );
       setCommands(res.data);
       resetRules();
@@ -700,22 +700,23 @@ export default function ActuatorPage() {
                             <td>
                               <select
                                 className="form-control"
-                                value={
-                                  conditionForms[g.id]
-                                    ?.type || "sensor"
-                                }
+                                value={conditionForms[g.id]?.type || ""}
                                 onChange={(e) =>
                                   updateConditionForm(
                                     g.id,
                                     "type",
-                                    e.target
-                                      .value
+                                    e.target.value
                                   )
                                 }
                               >
+                                <option value="">
+                                  Select
+                                </option>
+
                                 <option value="sensor">
                                   sensor
                                 </option>
+
                                 <option value="time">
                                   time
                                 </option>

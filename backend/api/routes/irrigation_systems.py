@@ -5,7 +5,7 @@ import hashlib
 
 from api.deps import get_db, get_current_user, get_system_with_access, get_system_by_api_key
 
-from models.irrigation_system import IrrigationSystem
+from models.system import System
 from models.system_user import SystemUser
 from models.user import User
 from models.system_sensor import Sensor
@@ -68,7 +68,7 @@ def create_system(
 ):
     raw_api_key = secrets.token_hex(32)
 
-    system = IrrigationSystem(
+    system = System(
         alias=data.alias,
         description=data.description,
         api_key=raw_api_key,
@@ -99,9 +99,9 @@ def get_my_systems(
     db: Session = Depends(get_db),
     user = Depends(get_current_user),
 ):
-    systems = db.query(IrrigationSystem).join(
+    systems = db.query(System).join(
         SystemUser,
-        SystemUser.system_id == IrrigationSystem.id
+        SystemUser.system_id == System.id
     ).filter(
         SystemUser.user_id == user.id
     ).all()

@@ -9,7 +9,7 @@ class SystemUser(Base):
 
     id = Column(BigInteger, primary_key=True, index=True)
 
-    system_id = Column(BigInteger, ForeignKey("irrigation_systems.id", ondelete="CASCADE"), nullable=False)
+    system_id = Column(BigInteger, ForeignKey("systems.id", ondelete="CASCADE"), nullable=False)
     user_id = Column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
 
     role = Column(String(30), nullable=False, default="viewer")

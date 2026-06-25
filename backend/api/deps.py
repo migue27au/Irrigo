@@ -6,7 +6,7 @@ from core.security import decode_access_token
 from db.db import SessionLocal
 
 from models.user import User
-from models.irrigation_system import IrrigationSystem
+from models.system import System
 from models.system_user import SystemUser
 from models.system_sensor import Sensor
 from models.system_actuator import SystemActuator
@@ -62,8 +62,8 @@ def get_system_by_api_key(
     if not x_api_key:
         raise HTTPException(status_code=401, detail="Missing API key")
 
-    system = db.query(IrrigationSystem).filter(
-        IrrigationSystem.api_key == x_api_key
+    system = db.query(System).filter(
+        System.api_key == x_api_key
     ).first()
 
     if not system:
@@ -102,8 +102,8 @@ def get_system_with_access(
         owner > maintainer > viewer
     """
 
-    system = db.query(IrrigationSystem).filter(
-        IrrigationSystem.id == system_id
+    system = db.query(System).filter(
+        System.id == system_id
     ).first()
 
     if not system:

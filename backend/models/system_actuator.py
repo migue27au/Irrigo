@@ -9,12 +9,7 @@ class SystemActuator(Base):
 
     id = Column(BigInteger, primary_key=True)
 
-    system_id = Column(
-        BigInteger,
-        ForeignKey("irrigation_systems.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True
-    )
+    system_id = Column(BigInteger, ForeignKey("systems.id", ondelete="CASCADE"), nullable=False, index=True)
 
     # Canal donde esta conectado (0-3)
     channel = Column(Integer, nullable=False)
@@ -24,7 +19,7 @@ class SystemActuator(Base):
     description = Column(String(255), nullable=True)
 
     # Estado actual
-    is_on = Column(Boolean, default=False, nullable=False)
+    enabled = Column(Boolean, default=False, nullable=False)
 
     intensity = Column(Numeric(5, 2), nullable=True)  # PWM 0-255
 

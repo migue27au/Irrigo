@@ -9,7 +9,7 @@ class Sensor(Base):
 
     id = Column(BigInteger, primary_key=True, index=True)
 
-    system_id = Column(BigInteger, ForeignKey("irrigation_systems.id", ondelete="CASCADE"), nullable=False)
+    system_id = Column(BigInteger, ForeignKey("systems.id", ondelete="CASCADE"), nullable=False)
 
     sensor_key = Column(String(100), nullable=False)
 
