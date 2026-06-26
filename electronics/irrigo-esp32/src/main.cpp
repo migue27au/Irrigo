@@ -22,7 +22,7 @@
 
 Logger logger;
 ApiService api(SERVER_HOST, SERVER_PORT, API_KEY, FIRMWARE, true);
-DynamicJsonDocument jsonResponse(4096);
+JsonDocument jsonResponse;
 System me;
 MeasureBatch measures;
 
@@ -143,46 +143,14 @@ void setup()
     }
 
     logger.info("SENSORS > Initializing...");
-    me.sensors[0].key = "temp1";
-    me.sensors[0].type = "temperature";
-    me.sensors[0].unit = "ºC";
-    me.sensors[0].enabled = true;
-
-    me.sensors[1].key = "temp2";
-    me.sensors[1].type = "temperature";
-    me.sensors[1].unit = "ºC";
-    me.sensors[1].enabled = true;
-
-    me.sensors[2].key = "humi1";
-    me.sensors[2].type = "humidity";
-    me.sensors[2].unit = "%";
-    me.sensors[2].enabled = true;
-
-    me.sensors[3].key = "humi2";
-    me.sensors[3].type = "humidity";
-    me.sensors[3].unit = "%";
-    me.sensors[3].enabled = true;
-
-    me.sensors[4].key = "soil1";
-    me.sensors[4].type = "soil moisture";
-    me.sensors[4].unit = "ºC";
-    me.sensors[4].enabled = true;
-
-    me.sensors[5].key = "soil2";
-    me.sensors[5].type = "soil moisture";
-    me.sensors[5].unit = "%";
-    me.sensors[5].enabled = true;
-
-    me.sensors[6].key = "wind";
-    me.sensors[6].type = "wind speed";
-    me.sensors[6].unit = "m/s";
-    me.sensors[6].enabled = true;
-
-    me.sensors[7].key = "rain";
-    me.sensors[7].type = "rain";
-    me.sensors[7].unit = "L/m2";
-    me.sensors[7].enabled = true;
-    
+    me.sensors[0].set("temp1", "temperature", "ºC");
+    me.sensors[1].set("temp2", "temperature", "ºC");
+    me.sensors[1].set("humi1", "humidity", "%");
+    me.sensors[1].set("humi2", "humidity", "%");
+    me.sensors[1].set("soil1", "soil moisture", "%");
+    me.sensors[1].set("soil2", "soil moisture", "%");
+    me.sensors[1].set("wind", "wind speed", "m/s");
+    me.sensors[1].set("rain", "precipitation", "L/m2");    
     me.sensorCount = 8;
 
     logger.ok("SENSORS > Initialized");
@@ -199,27 +167,29 @@ void setup()
     if (api.getActuators(jsonResponse)) {
         logger.ok("API > getActuators Response OK");
         me.actuatorCount = jsonResponse.size();
-        int i = 0;
         logger.info("Actuators > ", String(me.actuatorCount)); 
-        for (JsonObject actuatorJSON : jsonResponse.as<JsonArray>()) {
+        JsonArray arr = jsonResponse.as<JsonArray>();
+        for (size_t i = 0; i < arr.size(); i++) {
+            JsonObject actuatorJSON = arr[i];
+
             me.actuators[i].fromJSON(actuatorJSON);
             
-            logger.info("API > getCommandsOfActuator: ", me.actuators[i].id);
-            jsonResponse.clear();
-            if (api.getCommandsOfActuator(String(me.actuators[i].id), jsonResponse)) {
+            logger.info("API > getCommandsOfActuator", me.actuators[i].id);
+            JsonDocument actuatorsDoc;
+            if (api.getCommandsOfActuator(String(me.actuators[i].id), actuatorsDoc)) {
                 logger.ok("API > getCommandsOfActuator Response OK");
                 String output;
-                serializeJson(jsonResponse, output);
+                serializeJson(actuatorsDoc, output);
                 Serial.println(output);
-                me.actuators[i].getCommandsFromJSON(jsonResponse["commands"].as<JsonArray>());
+                me.actuators[i].getCommandsFromJSON(actuatorsDoc["commands"].as<JsonArray>());
 
                 for(int j = 0; j < me.actuators[i].commandsCount; j++){
                     if(me.actuators[i].commands[j].trigger_type == COMMAND_TRIGGER_AUTOMATIC){
                         logger.info("API > getRulesOfCommand: ", me.actuators[i].commands[j].id);
-                        jsonResponse.clear();
-                        if (api.getRulesOfCommand(String(me.actuators[i].commands[j].id), jsonResponse)) {
+                        JsonDocument rulesDoc;
+                        if (api.getRulesOfCommand(String(me.actuators[i].commands[j].id), rulesDoc)) {
                             logger.ok("API > getRulesOfCommand Response OK");
-                            me.actuators[i].commands[j].getRulesGroupFromJSON(jsonResponse["groups"].as<JsonArray>());
+                            me.actuators[i].commands[j].getRulesGroupFromJSON(rulesDoc["groups"].as<JsonArray>());
                         } else {
                             logger.bad("API > getRulesOfCommand Unexpected error");
                         }
@@ -228,7 +198,6 @@ void setup()
             } else {
                 logger.bad("API > getCommandsOfActuator Unexpected error");
             }
-            i++;
         }
     } else {
         logger.bad("API > getActuators Unexpected error");

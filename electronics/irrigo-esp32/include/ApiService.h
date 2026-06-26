@@ -18,8 +18,7 @@
 class ApiService {
 public:
 
-    ApiService(const char* host, uint16_t port, const char* apiKey, const char* firmware, bool logger = false);
-
+    ApiService(char* host, uint16_t port, char* apiKey, char* firmware, bool logger = false);
     void begin();
 
     bool getCurrentSystem(JsonDocument& payload);
@@ -31,13 +30,14 @@ public:
     bool getRulesOfCommand(String command_id, JsonDocument& payload);
 
 private:
-    
     HTTP http;
+
     char* apiKey;
     char* firmware;
 
     char* host;
     uint16_t port;
+
     bool logger;
 
     void addDefaultHeaders(HTTPRequest& request);   // Añade automáticamente: X-API-Key, Content-Type, Accept, User-Agent    

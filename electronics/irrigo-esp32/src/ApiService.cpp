@@ -1,10 +1,12 @@
 #include "ApiService.h"
 
-ApiService::ApiService(const char* host, uint16_t port, const char* apiKey, const char* firmware, bool logger){
-    this->host = (char*)host;
+ApiService::ApiService(char* host, uint16_t port, char* apiKey, char* firmware, bool logger){
+    this->host = host;
     this->port = port;
-    strlcpy(this->apiKey, apiKey, sizeof(this->apiKey));
-    strlcpy(this->firmware, firmware, sizeof(this->firmware));
+
+    this->apiKey = apiKey;
+    this->firmware = firmware;
+
     this->logger = logger;
 }
 

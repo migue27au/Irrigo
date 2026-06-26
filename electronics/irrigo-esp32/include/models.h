@@ -36,22 +36,23 @@ public:
 // ======================================================
 class RuleCondition {
 public:
-    String sensor_key = "";
+    char sensor_key[12] = "";
 
-    String type;   // sensor | time
-    String op;     // > < >= <= == !=
+    char type[8] = "";   // sensor | time
+    char op[4] = "";   // < > == != >= <=
 
     float value = 0;
-    String cron;
+    char cron[8] = "";   // 16:30
 
     int sensor_id = 0;
 
     void fromJSON(JsonObject obj) {
-        sensor_key = obj["sensor_key"].as<String>();
-        type = obj["type"].as<String>();
-        op = obj["op"].as<String>();
+        strlcpy(sensor_key, obj["sensor_key"] | "", sizeof(sensor_key));
+        strlcpy(type, obj["type"] | "", sizeof(type));
+        strlcpy(op, obj["op"] | "", sizeof(op));
         value = obj["value"].as<float>();
-        cron = obj["cron"].as<String>();
+        strlcpy(cron, obj["cron"] | "", sizeof(cron));
+
     }
 };
 
@@ -71,13 +72,14 @@ public:
         conditionCount = 0;
 
         JsonArray conditionsArray = obj["conditions"].as<JsonArray>();
-
-        for (JsonObject conditionObj : conditionsArray) {
-            if (conditionCount >= MAX_CONDITIONS)
-                break;
-
-            conditions[conditionCount].fromJSON(conditionObj);
-            conditionCount++;
+        if(!conditionsArray.isNull()){
+            for (JsonObject conditionObj : conditionsArray) {
+                if (conditionCount >= MAX_CONDITIONS)
+                    break;
+    
+                conditions[conditionCount].fromJSON(conditionObj);
+                conditionCount++;
+            }
         }
     }
 };
@@ -88,7 +90,7 @@ public:
 class Command {
 public:
     int id = 0;
-    String trigger_type = "";
+    char trigger_type[10] = "";
 
     float intensity = 0;
     int duration = 0;
@@ -98,16 +100,16 @@ public:
 
     void fromJSON(JsonObject obj) {
         id = obj["id"].as<int>();
-        trigger_type = obj["trigger_type"].as<String>();
-        intensity = obj["intensity"].as<int>();
+        strlcpy(trigger_type, obj["trigger_type"] | "", sizeof(trigger_type));
+        intensity = obj["intensity"].as<float>();
         duration = obj["duration"].as<int>();
     }
 
     void getRulesGroupFromJSON(JsonArray jarray){
-        rulesGroupCount = jarray.size();
-        int i = 0;
-        for (JsonObject rulesGroupJson : jarray) {
-            ruleGroups[i++].fromJSON(rulesGroupJson);
+        rulesGroupCount = min((int)jarray.size(), MAX_RULE_GROUPS);
+
+        for (int i = 0; i < rulesGroupCount; i++) {
+            ruleGroups[i].fromJSON(jarray[i]);
         }
     }
 };
@@ -137,10 +139,9 @@ public:
         String output;
         serializeJson(jarray, output);
         Serial.println(output);
-        commandsCount = jarray.size();  
-        int i = 0;
-        for (JsonObject commandJson : jarray) {
-            commands[i++].fromJSON(commandJson);
+        commandsCount = min((int)jarray.size(), MAX_COMMANDS);
+        for (int i = 0; i < commandsCount; i++) {
+            commands[i].fromJSON(jarray[i]);
         }
     }
 };
@@ -152,18 +153,25 @@ public:
 class Sensor {
 public:
     int id = 0;
-    String key;
-    String unit;
-    String type;
+    
+    char key[12] = "";
+    char unit[8] = "";
+    char type[16] = "";
 
     bool enabled = true;
-    String created_at;
 
     void toJSON(JsonObject obj) const {
         obj["sensor_key"] = key;
         obj["unit"] = unit;
         obj["sensor_type"] = type;
         obj["enabled"] = enabled;
+    }
+
+    void set(String key, String unit, String type, bool enabled = true){
+        strlcpy(this->key, key.c_str(), sizeof(this->key));
+        strlcpy(this->unit, unit.c_str(), sizeof(this->unit));
+        strlcpy(this->type, type.c_str(), sizeof(this->type));
+        this->enabled = enabled;
     }
 };
 
@@ -172,14 +180,20 @@ public:
 // ======================================================
 class Measure {
 public:
-    String sensor_key;
+    char sensor_key[12] = "";
     float value;
-    String timestamp;
+    char timestamp[32] = "";
 
     void toJSON(JsonObject obj) const {
         obj["sensor_key"] = sensor_key;
         obj["value"] = value;
         obj["timestamp"] = timestamp;
+    }
+
+    void set(String sensor_key, float value, String timestamp){
+        strlcpy(this->sensor_key, sensor_key.c_str(), sizeof(this->sensor_key));
+        strlcpy(this->timestamp, timestamp.c_str(), sizeof(this->timestamp));
+        this->value = value;
     }
 };
 
@@ -196,15 +210,10 @@ public:
         return true;
     }
 
-    bool add(const String& sensor_key, float value, String timestamp) {
+    bool add(String sensor_key, float value, String timestamp) {
         if (measureCount >= MAX_MEASURES)
             return false;
-
-        measures[measureCount].sensor_key = sensor_key;
-        measures[measureCount].value = value;
-        measures[measureCount].timestamp = timestamp;
-
-        measureCount++;
+        measures[measureCount++].set(sensor_key, value, timestamp);
 
         return true;
     }
