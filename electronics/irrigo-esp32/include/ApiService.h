@@ -1,5 +1,8 @@
 #pragma once
 
+#ifndef APISERVICE_H
+#define APISERVICE_H
+
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <ESP32HTTP.h>
@@ -11,6 +14,7 @@
 #define ENDPOINT_ACTUATORS_GET "/actuators/get"
 #define ENDPOINT_COMMANDS_GET "/actuators/{actuator_id}/commands"
 #define ENDPOINT_RULES "/rules/{command_id}/get"
+#define ENDPOINT_COMMAND_EXECUTED "/actuators/commands/{command_id}/executed"
 
 #define COMMAND_TRIGGER_MANUAL "manual"
 #define COMMAND_TRIGGER_AUTOMATIC "automatic"
@@ -28,6 +32,7 @@ public:
     bool getActuators(JsonDocument& payload);
     bool getCommandsOfActuator(String actuator_id, JsonDocument& payload);
     bool getRulesOfCommand(String command_id, JsonDocument& payload);
+    bool commandExecuted(String command_id, const String &executedAt, JsonDocument& payload);
 
 private:
     HTTP http;
@@ -47,3 +52,5 @@ private:
     HTTPRequest buildPostRequest(const String& endpoint, const String& payload);
     bool parseJsonResponse(HTTPResponse& response, JsonDocument& document);
 };
+
+#endif  // APISERVICE_H

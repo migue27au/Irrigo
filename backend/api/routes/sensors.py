@@ -106,6 +106,11 @@ def ingest_sensor_data(
     ingested = []
 
     for item in payload.data:
+        # skip invalid entries
+        if item.sensor_key is None or item.value is None or item.timestamp is None:
+            continue
+        if item.sensor_key == "" or item.timestamp == "":
+            continue
 
         sensor = (
             db.query(Sensor)

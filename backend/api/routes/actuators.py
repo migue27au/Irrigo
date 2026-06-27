@@ -20,9 +20,9 @@ from schemas.actuator import (
     ActuatorCommandOut,
     ActuatorCommandCreate,
     ActuatorCommandUpdate,
-    ActuatorExecutedIn,
     ActuatorOut,
     ActuatorCommandOutBatch,
+    CommandExecutedIn,
 )
 
 router = APIRouter(prefix="/actuators", tags=["Actuators"])
@@ -315,11 +315,16 @@ def delete_command(command_id: int, db: Session = Depends(get_db), user=Depends(
 # =====================================================
 # ESP32 CONFIRMATION
 # =====================================================
-@router.post("/executed")
-def actuator_executed(payload: ActuatorExecutedIn, db: Session = Depends(get_db), system=Depends(get_system_by_api_key)):
+@router.post("/commands/{command_id}/executed")
+def actuator_executed(
+    command_id: int,
+    payload: CommandExecutedIn,
+    db: Session = Depends(get_db),
+    system=Depends(get_system_by_api_key),
+):
 
     cmd = db.query(ActuatorCommand).filter(
-        ActuatorCommand.id == payload.command_id,
+        ActuatorCommand.id == command_id,
         ActuatorCommand.system_id == system.id,
         ActuatorCommand.enabled == True,
     ).first()
@@ -327,17 +332,23 @@ def actuator_executed(payload: ActuatorExecutedIn, db: Session = Depends(get_db)
     if not cmd:
         raise HTTPException(404, "Command not found")
 
+    if payload.command_id != command_id:
+        raise HTTPException(
+            status_code=400,
+            detail="command_id in body must match path parameter",
+        )
+
     cmd.executed_count += 1
-    cmd.last_executed_at = datetime.utcnow()
+    cmd.last_executed_at = payload.executed_at
 
     db.add(
         ActuatorEvent(
-            actuator_id=payload.actuator_id,
-            command_id=payload.command_id,
-            intensity=payload.intensity,
-            duration_seconds=payload.duration_seconds,
-            trigger_type=payload.trigger_type,
-            recorded_at=datetime.utcnow(),
+            actuator_id=cmd.actuator_id,
+            command_id=cmd.id,
+            intensity=cmd.intensity,
+            duration_seconds=cmd.duration_seconds,
+            trigger_type=cmd.trigger_type,
+            recorded_at=payload.executed_at,
         )
     )
 

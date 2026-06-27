@@ -97,6 +97,13 @@ public:
     Serial.println(value);
   }
 
+  void warn(const char* msg, const String& value) {
+    printPrefix(F("[!] "));
+    Serial.print(msg);
+    Serial.print(F(": "));
+    Serial.println(value);
+  }
+
   void warn(const char* msg, int value) {
     printPrefix(F("[!] "));
     Serial.print(msg);
@@ -122,6 +129,13 @@ public:
     Serial.println(value);
   }
 
+  void bad(const char* msg, const String& value) {
+    printPrefix(F("[-] "));
+    Serial.print(msg);
+    Serial.print(F(": "));
+    Serial.println(value);
+  }
+
   void bad(const char* msg, int value) {
     printPrefix(F("[-] "));
     Serial.print(msg);
@@ -131,6 +145,10 @@ public:
 
   // RAW
   void raw(const char* msg) {
+    Serial.println(msg);
+  }
+
+  void raw(const String& msg) {
     Serial.println(msg);
   }
 

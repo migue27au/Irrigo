@@ -35,18 +35,6 @@ class ActuatorGetResponse(BaseModel):
 
 
 # =====================================================
-# EXECUTION CONFIRMATION (IrrigationSystem → BACKEND)
-# =====================================================
-class ActuatorExecutedIn(BaseModel):
-    command_id: int
-    actuator_id: int
-
-    intensity: Optional[float] = None
-    duration_seconds: Optional[int] = None
-    trigger_type: str
-
-
-# =====================================================
 # CREATE / UPDATE COMMAND (BACKEND USER)
 # =====================================================
 class ActuatorCommandCreate(BaseModel):
@@ -68,6 +56,11 @@ class ActuatorCommandUpdate(BaseModel):
 
     disabled: Optional[bool] = None
     disabled_reason: Optional[str] = None
+
+
+class CommandExecutedIn(BaseModel):
+    command_id: int
+    executed_at: datetime
 
 
 # =====================================================

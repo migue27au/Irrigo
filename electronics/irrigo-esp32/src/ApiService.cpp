@@ -11,8 +11,8 @@ ApiService::ApiService(char* host, uint16_t port, char* apiKey, char* firmware, 
 }
 
 void ApiService::begin(){
-    http.setValues(host, port, logger);
     http.begin();
+    http.setValues(host, port, logger);
 }
 
 
@@ -112,6 +112,22 @@ bool ApiService::getRulesOfCommand(String command_id, JsonDocument& payload){
     String endpoint = ENDPOINT_RULES;
     endpoint.replace("{command_id}", command_id);
     HTTPRequest request = buildGetRequest(endpoint);
+    HTTPResponse response = http.sendRequest(request);
+
+    return parseJsonResponse(response, payload);
+}
+
+bool ApiService::commandExecuted(String command_id, const String &executedAt, JsonDocument& payload){
+    String endpoint = ENDPOINT_COMMAND_EXECUTED;
+    endpoint.replace("{command_id}", command_id);
+
+    JsonDocument body;
+    body["command_id"] = command_id.toInt();
+    body["executed_at"] = executedAt;
+    String payloadBody;
+    serializeJson(body, payloadBody);
+
+    HTTPRequest request = buildPostRequest(endpoint, payloadBody);
     HTTPResponse response = http.sendRequest(request);
 
     return parseJsonResponse(response, payload);

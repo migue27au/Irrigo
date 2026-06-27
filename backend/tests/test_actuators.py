@@ -190,18 +190,9 @@ def test_manual_commands_filtering():
 # =========================================================
 
 def test_actuator_execution_confirmation():
-    actuator_id = get_actuator()
-
     r = request(
         "POST",
-        "/actuators/executed",
-        json_body={
-            "command_id": 1,
-            "actuator_id": actuator_id,
-            "intensity": 1.0,
-            "duration_seconds": 10,
-            "trigger_type": "manual"
-        },
+        "/actuators/commands/1/executed",
         headers={"X-API-Key": SYSTEM_CACHE["api_key"]}
     )
 
@@ -214,18 +205,9 @@ def test_execution_updates_state():
     ejecutado_count debería incrementarse
     """
 
-    actuator_id = get_actuator()
-
     r = request(
         "POST",
-        "/actuators/executed",
-        json_body={
-            "command_id": 1,
-            "actuator_id": actuator_id,
-            "intensity": 1.0,
-            "duration_seconds": 10,
-            "trigger_type": "manual"
-        },
+        "/actuators/commands/1/executed",
         headers={"X-API-Key": SYSTEM_CACHE["api_key"]}
     )
 
